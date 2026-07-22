@@ -165,6 +165,12 @@ class Brief:
     confidential: list[str] = field(default_factory=list)
     safe: str = ""
     story: str = ""
+    # The "## Metrics — PROJECTED, not measured" section. Kept SEPARATE from
+    # `safe` because the two do different jobs: both are evidence the claims
+    # validator traces numbers against, but only this one carries figures whose
+    # FRAMING is constrained (targets, never achieved results). Splitting them
+    # means the writer prompt can treat them differently.
+    metrics: str = ""
 
     @property
     def blocked(self) -> bool:
@@ -198,4 +204,5 @@ def load_brief(project_id: str) -> Brief:
         ],
         safe=_section(text, "Safe to publish"),
         story=_section(text, "The story"),
+        metrics=_section(text, "Metrics"),
     )

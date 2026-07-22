@@ -38,7 +38,15 @@ STUDIO_PERSONA = (
     "     page with no surrounding context. Name the subject; never open a section\n"
     "     with a pronoun pointing at something outside it.\n"
     "  2. ANSWER FIRST. Open each section with the claim, then explain it. Do not\n"
-    "     build up to the point."
+    "     build up to the point.\n"
+    "  3. PROJECTED NUMBERS ARE TARGETS. If the brief has a section headed\n"
+    "     'Metrics — PROJECTED, not measured', every figure in it is a design goal\n"
+    "     that nobody instrumented and recorded. Write those as targets: 'targeting\n"
+    "     60 FPS on mid-range hardware', 'designed for sub-200ms', 'should keep'.\n"
+    "     NEVER as achieved results: not 'sustained 60 FPS', not 'delivers 200ms',\n"
+    "     not 'cut response time by'. A measured-sounding claim built on a\n"
+    "     projection is the one failure that survives every other check here,\n"
+    "     because the number IS traceable — only its framing is false."
 )
 
 # Framing rule per archetype. `own_product` is the one that needs saying out loud:

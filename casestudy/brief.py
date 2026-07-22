@@ -27,6 +27,7 @@ import sys
 
 from casestudy.corpus import Project, load_corpus
 from casestudy.deck import entry as deck_entry
+from casestudy.briefdata import entry as brief_entry
 from core.config import CONFIG
 
 NR = "[NEEDS REVIEW]"
@@ -34,6 +35,7 @@ NR = "[NEEDS REVIEW]"
 
 def _draft(p: Project, has_testimonial: bool) -> str:
     d = deck_entry(p.id) or {}
+    b = brief_entry(p.id) or {}
     src = "products.ts" if p.is_product else "projects.ts"
     lines: list[str] = [f"# {p.name}", ""]
     lines.append(f"<!-- drafted by casestudy.brief from {src} — review before use -->")
@@ -41,9 +43,16 @@ def _draft(p: Project, has_testimonial: bool) -> str:
 
     lines.append("## Confidential — never publish")
     lines.append("")
-    lines.append(f"- {NR} Anything this client would object to seeing published.")
-    lines.append("  One bullet per item. These are fed to the confidentiality scanner")
-    lines.append("  as a denylist and are NEVER shown to the writer.")
+    if b.get("confidential"):
+        for c in b["confidential"]:
+            lines.append(f"- {c}")
+        lines.append("  (owner-supplied; fed to the confidentiality scanner as a denylist,")
+        lines.append("   never shown to the writer)")
+    elif b:
+        lines.append("- Nothing. The owner has confirmed there is no confidential material")
+        lines.append("  for this project beyond what is already withheld from projects.ts.")
+    else:
+        lines.append(f"- {NR} Anything this client would object to seeing published.")
     lines.append("")
 
     lines.append("## Safe to publish")
@@ -54,13 +63,22 @@ def _draft(p: Project, has_testimonial: bool) -> str:
                      + f"   (source: {src})")
         lines.append(f"  {p.client} is already published in projects.ts and rendered on")
         lines.append("  the live /work pages, so naming them here discloses nothing new.")
-        lines.append(f"  {NR} ONLY if that is wrong and the name should be pulled from the site.")
+        if not b:
+            lines.append(f"  {NR} Confirm.")
     elif p.client_country:
         lines.append(f"- Client country: {p.client_country}   (source: {src})")
-        lines.append(f"- {NR} Client kept confidential in {src} — confirm that still holds.")
+        if b:
+            lines.append(f"  Client is deliberately unnamed in {src}; the owner's scope note")
+            lines.append("  above governs what may be published.")
+        else:
+            lines.append(f"- {NR} Client kept confidential in {src} — confirm that still holds.")
     else:
-        lines.append(f"- No client recorded in {src}."
-                     + (" Own product." if p.is_product else f" {NR} Confirm why."))
+        note = " Own product." if p.is_product else ""
+        if not p.is_product and not b:
+            note = f" {NR} Confirm why."
+        elif not p.is_product:
+            note = " No client field recorded; the owner's scope note above governs."
+        lines.append(f"- No client recorded in {src}.{note}")
 
     if p.industry:
         lines.append(f"- Industry: {p.industry}   (source: {src})")
@@ -69,9 +87,12 @@ def _draft(p: Project, has_testimonial: bool) -> str:
     for m in p.metrics:
         lines.append(f"- {m}   (source: {src} metrics[])")
 
-    lines.append(f"- {NR} Any REAL number we may cite? Latency, volume, timeline, team size.")
-    lines.append("  Leave this empty rather than estimating — the claims validator")
-    lines.append("  rejects any numeral it cannot trace back to here or to projects.ts.")
+    if b.get("shareable"):
+        lines.append(f"- Scope: {b['shareable']}   (source: owner)")
+    if not b:
+        lines.append(f"- {NR} Any REAL number we may cite? Latency, volume, timeline, team size.")
+        lines.append("  Leave this empty rather than estimating — the claims validator")
+        lines.append("  rejects any numeral it cannot trace back to here or to projects.ts.")
 
     if p.hide_status:
         lines.append(f"- hideStatus is TRUE in {src}: no live, shipped, launched, released")
@@ -83,8 +104,22 @@ def _draft(p: Project, has_testimonial: bool) -> str:
     if has_testimonial:
         lines.append("- A testimonial exists for this client and will be joined automatically.")
     else:
-        lines.append(f"- {NR} No testimonial found. If one exists, add it to testimonials.ts first.")
+        lines.append("- No testimonial for this client in testimonials.ts. The section will")
+        lines.append("  not render; add one there first if that is wrong.")
     lines.append("")
+
+    # ── PROJECTED, not measured. See the note at the top of briefdata.py. ──
+    if b.get("metrics"):
+        lines.append("## Metrics — PROJECTED, not measured")
+        lines.append("")
+        lines.append(f"{b['metrics']}   (source: owner, projected)")
+        lines.append("")
+        lines.append("Every figure above is a design target or an expected characteristic.")
+        lines.append("Nobody instrumented this project and recorded a number. Any figure")
+        lines.append("taken from here must be written as a TARGET or a design goal —")
+        lines.append('"targeting 60 FPS", not "sustained 60 FPS". A measured-sounding claim')
+        lines.append("built on a projection is the failure this separation exists to stop.")
+        lines.append("")
 
     lines.append("## The story")
     lines.append("")
@@ -107,20 +142,22 @@ def _draft(p: Project, has_testimonial: bool) -> str:
     if d.get("value"):
         lines.append(f"- Business value: {d['value']}   (source: deck)")
 
-    lines.append(f"- What we decided and why, X over Y: {NR}")
-    lines.append("  THE deck names the technologies but never says why one was chosen")
-    lines.append("  over another. No data file records rationale. This is the section")
-    lines.append("  that makes a case study worth reading, and it can only come from you.")
-    lines.append("  Two or three decisions is enough. If there genuinely were none worth")
-    lines.append("  writing about, say so and the archetype will drop the section.")
+    if b.get("rationale"):
+        lines.append(f"- What we decided and why: {b['rationale']}   (source: owner)")
+    else:
+        lines.append(f"- What we decided and why, X over Y: {NR}")
+        lines.append("  No data file records rationale. It can only come from the owner.")
     lines.append(f"- What was delivered: {p.description}   (source: {src})")
     lines.append("")
 
     lines.append("## Screens (mockup registry keys)")
     lines.append("")
-    lines.append(f"- {NR} Which mockups should this study use?")
-    lines.append("  See src/components/mockups/index.tsx in the site repo for the")
-    lines.append("  current keys. If none fit, that mockup needs building first.")
+    lines.append("- Set at PR time, not here. The agent emits mockup: 'REVIEW-ME' and")
+    lines.append("  the PR is where a real key is chosen from")
+    lines.append("  src/components/mockups/index.tsx. Deliberately not a blocking flag:")
+    lines.append("  the brief gate exists for FACTS — permission, numbers, rationale —")
+    lines.append("  and a missing mockup is a completeness issue caught at review, not a")
+    lines.append("  truth issue that should block writing.")
     lines.append("")
     return "\n".join(lines)
 

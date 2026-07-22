@@ -4,24 +4,30 @@
 
 ## Confidential — never publish
 
-- [NEEDS REVIEW] Anything this client would object to seeing published.
-  One bullet per item. These are fed to the confidentiality scanner
-  as a denylist and are NEVER shown to the writer.
+- Nothing. The owner has confirmed there is no confidential material
+  for this project beyond what is already withheld from projects.ts.
 
 ## Safe to publish
 
 - Client: Anna, Ukraine   (source: projects.ts)
   Anna is already published in projects.ts and rendered on
   the live /work pages, so naming them here discloses nothing new.
-  [NEEDS REVIEW] ONLY if that is wrong and the name should be pulled from the site.
 - Industry: Gaming   (source: projects.ts)
 - Stack: Flutter, Dart, Google Ads   (source: projects.ts)
-- [NEEDS REVIEW] Any REAL number we may cite? Latency, volume, timeline, team size.
-  Leave this empty rather than estimating — the claims validator
-  rejects any numeral it cannot trace back to here or to projects.ts.
+- Scope: Gameplay architecture, monetization strategy, and performance optimization techniques are shareable.   (source: owner)
 - hideStatus is not set in projects.ts, so release language is permitted.
   projects.ts is the source of truth for this and is kept current.
 - A testimonial exists for this client and will be joined automatically.
+
+## Metrics — PROJECTED, not measured
+
+Carefully timed advertisement placement, rather than interruptive mid-game interstitials, should preserve gameplay performance while reducing the perceived intrusiveness that commonly leads to player frustration and uninstalls.   (source: owner, projected)
+
+Every figure above is a design target or an expected characteristic.
+Nobody instrumented this project and recorded a number. Any figure
+taken from here must be written as a TARGET or a design goal —
+"targeting 60 FPS", not "sustained 60 FPS". A measured-sounding claim
+built on a projection is the failure this separation exists to stop.
 
 ## The story
 
@@ -31,16 +37,14 @@
 - Technical highlights: Advertisement integration; Performance optimization; Smooth rendering pipeline   (source: deck)
 - Architecture: Flutter → Game Engine → Google Ads Integration   (source: deck)
 - Business value: Combines enjoyable gameplay with sustainable monetization while preserving user experience.   (source: deck)
-- What we decided and why, X over Y: [NEEDS REVIEW]
-  THE deck names the technologies but never says why one was chosen
-  over another. No data file records rationale. This is the section
-  that makes a case study worth reading, and it can only come from you.
-  Two or three decisions is enough. If there genuinely were none worth
-  writing about, say so and the archetype will drop the section.
+- What we decided and why: Advertising SDKs frequently introduce frame drops and UI interruptions when integrated without planning. Engineering focused specifically on when and where ads appear relative to gameplay state, balancing monetisation against player experience.   (source: owner)
 - What was delivered: Snow-themed casual 2D game for Android and iOS with smooth gameplay and ad-based monetisation built in.   (source: projects.ts)
 
 ## Screens (mockup registry keys)
 
-- [NEEDS REVIEW] Which mockups should this study use?
-  See src/components/mockups/index.tsx in the site repo for the
-  current keys. If none fit, that mockup needs building first.
+- Set at PR time, not here. The agent emits mockup: 'REVIEW-ME' and
+  the PR is where a real key is chosen from
+  src/components/mockups/index.tsx. Deliberately not a blocking flag:
+  the brief gate exists for FACTS — permission, numbers, rationale —
+  and a missing mockup is a completeness issue caught at review, not a
+  truth issue that should block writing.

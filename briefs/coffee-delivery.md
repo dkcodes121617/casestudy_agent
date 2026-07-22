@@ -4,24 +4,30 @@
 
 ## Confidential — never publish
 
-- [NEEDS REVIEW] Anything this client would object to seeing published.
-  One bullet per item. These are fed to the confidentiality scanner
-  as a denylist and are NEVER shown to the writer.
+- Nothing. The owner has confirmed there is no confidential material
+  for this project beyond what is already withheld from projects.ts.
 
 ## Safe to publish
 
 - Client: Ulyanovich, Poland   (source: projects.ts)
   Ulyanovich is already published in projects.ts and rendered on
   the live /work pages, so naming them here discloses nothing new.
-  [NEEDS REVIEW] ONLY if that is wrong and the name should be pulled from the site.
 - Industry: Food & Beverage   (source: projects.ts)
 - Stack: UI/UX Design, Figma   (source: projects.ts)
-- [NEEDS REVIEW] Any REAL number we may cite? Latency, volume, timeline, team size.
-  Leave this empty rather than estimating — the claims validator
-  rejects any numeral it cannot trace back to here or to projects.ts.
+- Scope: A design-only engagement. The design process, wireframes, interactive prototypes, and UX methodology are shareable.   (source: owner)
 - hideStatus is TRUE in projects.ts: no live, shipped, launched, released
   or app-store claim may appear anywhere in the study.
 - A testimonial exists for this client and will be joined automatically.
+
+## Metrics — PROJECTED, not measured
+
+A validated prototype allows usability problems such as confusing checkout flows and unclear ordering states to be found before development begins, where changes are far cheaper to make.   (source: owner, projected)
+
+Every figure above is a design target or an expected characteristic.
+Nobody instrumented this project and recorded a number. Any figure
+taken from here must be written as a TARGET or a design goal —
+"targeting 60 FPS", not "sustained 60 FPS". A measured-sounding claim
+built on a projection is the failure this separation exists to stop.
 
 ## The story
 
@@ -31,16 +37,14 @@
 - Technical highlights: User-centered design; Reusable design components; Accessibility considerations; Mobile-first layouts   (source: deck)
 - Architecture: Figma Design System → Wireframes → High-Fidelity Mockups → Interactive Prototype   (source: deck)
 - Business value: Reduced design uncertainty and established a validated blueprint for future application development.   (source: deck)
-- What we decided and why, X over Y: [NEEDS REVIEW]
-  THE deck names the technologies but never says why one was chosen
-  over another. No data file records rationale. This is the section
-  that makes a case study worth reading, and it can only come from you.
-  Two or three decisions is enough. If there genuinely were none worth
-  writing about, say so and the archetype will drop the section.
+- What we decided and why: Building the whole app before validating the ordering experience risks expensive redesign mid-development. Delivering wireframes, high-fidelity mockups and an interactive prototype enables usability testing early, so engineering is only invested after the experience is validated.   (source: owner)
 - What was delivered: Mobile ordering UI/UX design for a coffee brand - user flows, screens, and a mobile-first ordering experience, delivered as design ahead of any build.   (source: projects.ts)
 
 ## Screens (mockup registry keys)
 
-- [NEEDS REVIEW] Which mockups should this study use?
-  See src/components/mockups/index.tsx in the site repo for the
-  current keys. If none fit, that mockup needs building first.
+- Set at PR time, not here. The agent emits mockup: 'REVIEW-ME' and
+  the PR is where a real key is chosen from
+  src/components/mockups/index.tsx. Deliberately not a blocking flag:
+  the brief gate exists for FACTS — permission, numbers, rationale —
+  and a missing mockup is a completeness issue caught at review, not a
+  truth issue that should block writing.

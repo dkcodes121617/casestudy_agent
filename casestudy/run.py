@@ -63,7 +63,13 @@ def run_once(candidate: Candidate, corpus: Corpus, site_dir=None) -> dict:
     # The writer sees "Safe to publish" and "The story". It NEVER sees
     # "## Confidential" — that goes only to the scanner, as a denylist. That
     # asymmetry is the mechanism that makes unattended generation safe.
-    brief_for_writer = f"{brief.safe}\n\n{brief.story}".strip()
+    # The Metrics section keeps its heading, verbatim, so the persona's
+    # projected-framing rule (STUDIO_PERSONA rule 3) has something to key off.
+    brief_for_writer = "\n\n".join(x for x in (
+        brief.safe,
+        f"## Metrics — PROJECTED, not measured\n{brief.metrics}" if brief.metrics else "",
+        brief.story,
+    ) if x.strip()).strip()
 
     from core.facts.snapshot import build_snapshot
     facts = build_snapshot(site_dir).to_prompt_block()
@@ -104,7 +110,11 @@ def run_once(candidate: Candidate, corpus: Corpus, site_dir=None) -> dict:
         for section in sections:
             heading = mdxv.section_heading(section, archetype=archetype,
                                            hide_status=project.hide_status)
-            extras = _section_extras(section, slug, plan, corpus)
+            extras = _section_extras(
+                section, slug, plan, corpus,
+                is_last=(section == sections[-1]),
+                mockups=sorted(_mockup_keys(site_dir, project_id=project.id)),
+            )
             sys_w, usr_w = P.section_prompt(facts, brief_for_writer, pdict, archetype,
                                             plan, section, heading, extras)
             if feedback:
@@ -139,7 +149,11 @@ def run_once(candidate: Candidate, corpus: Corpus, site_dir=None) -> dict:
         return _abort("release claims on a hideStatus study", report + [sr.render()])
 
     # ── 6. Claims traceability (deterministic) ──
-    cr = claims.scan(body, project_metrics=project.metrics, brief_safe=brief.safe,
+    # Evidence = "Safe to publish" AND "Metrics". Both are legitimate sources for
+    # traceability; the PROJECTED framing constraint on the metrics figures is
+    # enforced by the writer prompt, not by hiding them from the validator.
+    cr = claims.scan(body, project_metrics=project.metrics,
+                     brief_safe=brief.safe + "\n" + brief.metrics,
                      project_description=project.description)
     report.append(cr.render())
     if not cr.clean:
@@ -194,37 +208,88 @@ def run_once(candidate: Candidate, corpus: Corpus, site_dir=None) -> dict:
     return state
 
 
-def _section_extras(section: str, slug: str, plan: dict, corpus: Corpus) -> str:
-    """Per-section component and linking requirements the validator will enforce."""
+def _section_extras(section: str, slug: str, plan: dict, corpus: Corpus,
+                    *, is_last: bool = False, mockups: list[str] | None = None) -> str:
+    """Per-section component and linking requirements the validator will enforce.
+
+    `is_last` carries the internal-link requirement. It used to live on the
+    `decisions` section — which the `game`, `platform_frontend` and `design_only`
+    archetypes DROP, so nothing ever asked for the links and every study of those
+    shapes failed validation three times and aborted. Found on the first live run.
+    """
+    parts: list[str] = []
+
+    if is_last:
+        parts.append(
+            f"End the section with internal links, which every study must carry: one "
+            f"to a /blog/ post chosen from {corpus.blog_slugs[:8]}, and one to the "
+            f"relevant /services/ page (web, mobile or ai). Write them as natural "
+            f"markdown links in a closing sentence, not as a list.")
+
     if section == "build":
-        return (f'Include this exact component on its own line:\n'
-                f'  <ArchitectureDiagram study="{slug}" caption="…" />\n'
-                f'It reads the architecture from the registry, so pass only the slug.')
-    if section == "tour":
-        return ('Include one <Annotated mockup="…" caption="…" pins={[…]} /> with 3-4 pins. '
-                'Each pin needs x and y as percentages, a short label, and a note saying '
-                'WHY it is built that way — not what it is.')
-    if section == "decisions":
+        parts.append(f'Include this exact component on its own line:\n'
+                     f'    <ArchitectureDiagram study="{slug}" caption="…" />\n'
+                     f'    It reads the architecture from the registry, so pass only the slug.')
+
+    elif section == "tour":
+        # Only offer keys that EXIST and are scoped to this project. Left open, the
+        # writer invents a plausible key every single attempt — "mindmaze-junior-
+        # gameplay", then "/mockups/mindmaze-junior-gameplay.png" — fails validation,
+        # and burns the entire rewrite budget doing it. Observed on the first two
+        # live runs. If nothing has been built yet, say so plainly: the validator
+        # treats a missing <Annotated> as a warning, so prose alone is valid.
+        if mockups:
+            parts.append(
+                f'Include one <Annotated mockup="KEY" caption="…" pins={{[…]}} /> with '
+                f'3-4 pins. The mockup value must be EXACTLY one of these existing '
+                f'registry keys: {mockups}. Do not invent a key. Each pin needs x and y '
+                f'as percentages, a short label, and a note saying WHY it is built that '
+                f'way — not what it is.')
+        else:
+            parts.append(
+                "No mockup exists for this project yet. Write this section as PROSE "
+                "ONLY. Do not include an <Annotated> component, do not reference an "
+                "image file, and do not invent a mockup key — a visual is added at "
+                "review time.")
+
+    elif section == "decisions":
         rows = plan.get("decisions") or []
         listed = "; ".join(f"{d.get('choice')} over {d.get('over')}" for d in rows if d.get("choice"))
-        return (f"Cover these decisions, each as a bold lead-in followed by the reasoning: "
-                f"{listed or 'the two or three choices that mattered most'}.\n"
-                f"End with one or two internal links: a /blog/ post from "
-                f"{corpus.blog_slugs[:6]} and the relevant /services/ page.")
-    if section == "problem":
-        return "No components. Prose only."
-    return ""
+        parts.append(f"Cover these decisions, each as a bold lead-in followed by the "
+                     f"reasoning: {listed or 'the two or three choices that mattered most'}.")
+
+    elif section == "problem":
+        parts.append("No components. Prose only.")
+
+    return "\n".join(f"  - {p}" for p in parts) if parts else "  - (prose only)"
 
 
-def _mockup_keys(site_dir) -> set[str]:
-    """Read the mockup registry keys out of the site repo."""
+def _mockup_keys(site_dir, *, project_id: str | None = None) -> set[str]:
+    """Registry keys, optionally filtered to those valid for one project.
+
+    Each entry declares `projects: [...]`. An empty list means generic/reusable.
+    Passing a project_id returns only the keys that project may legitimately use,
+    which is what stops a study reaching for another project's UI.
+    """
     import re
     base = Path(site_dir) if site_dir else CONFIG.local_site_dir
     path = base / "src" / "components" / "mockups" / "index.tsx"
     if not path.exists():
         return set()
     src = path.read_text(encoding="utf-8", errors="replace")
-    return set(re.findall(r"^\s*'([a-z]+/[a-z0-9-]+)':\s*\{", src, re.M))
+
+    blocks = re.split(r"^\s*'([a-z]+/[a-z0-9-]+)':\s*\{", src, flags=re.M)
+    out: set[str] = set()
+    for i in range(1, len(blocks), 2):
+        key, body = blocks[i], blocks[i + 1]
+        if project_id is None:
+            out.add(key)
+            continue
+        m = re.search(r"projects:\s*\[([^\]]*)\]", body)
+        owners = [t.strip().strip("'\"") for t in (m.group(1).split(",") if m else []) if t.strip()]
+        if not owners or project_id in owners:
+            out.add(key)
+    return out
 
 
 def _esc(s: str) -> str:
