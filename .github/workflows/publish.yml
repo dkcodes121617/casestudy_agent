@@ -1,0 +1,89 @@
+name: Publish case study
+
+# Same deployment shape as the blog agent, with two deliberate differences:
+#
+#   1. MONTHLY, not hourly. The corpus is finite — 30 projects — so there is no
+#      reason to rush it, and each study is a page a prospect reads closely.
+#   2. Opens a PULL REQUEST, never pushes to main. A case study names a real
+#      client; a human merges.
+#
+# Free on this public repo (public repos get unlimited Actions minutes), so there
+# is no server to pay for. The site repo's own deploy workflow builds and runs
+# `firebase deploy` once the PR is merged — this agent only touches git.
+
+on:
+  schedule:
+    # 09:00 UTC on the 1st and 15th — two slots a month. Whether a study is
+    # actually generated depends on STUDIES_PER_MONTH and on whether any project
+    # has a clean brief; a run with nothing to do exits cheaply.
+    - cron: "0 9 1,15 * *"
+  workflow_dispatch:
+    inputs:
+      project:
+        description: "Force a specific project id (blank = let the queue choose)"
+        type: string
+        required: false
+      dry_run:
+        description: "Generate to output/ without touching git"
+        type: boolean
+        default: true
+
+concurrency:
+  group: publish-case-study
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout agent
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run agent
+        env:
+          ANTHROPIC_BASE_URL: https://api3.claudestore.store
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_MODEL: claude-sonnet-4.6
+          ANTHROPIC_SMALL_FAST_MODEL: claude-haiku-4.5
+          ANTHROPIC_STRATEGY_MODEL: claude-opus-4-8
+          # Actions reserves the name GITHUB_TOKEN, so the secret is PUBLISH_TOKEN
+          # and is mapped to the env var the app reads. Same convention as the
+          # blog agent. GH_TOKEN is what the `gh` CLI authenticates with.
+          GITHUB_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
+          GH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
+          GITHUB_REPO: dkcodes121617/wizcodes_main_website
+          GITHUB_BRANCH: main
+          GIT_AUTHOR_NAME: WizCodes Case Study Bot
+          GIT_AUTHOR_EMAIL: business@wizcodes.site
+          STUDIES_PER_MONTH: "1"
+          OPEN_PR: "1"
+          REQUIRE_CLEAN_BRIEF: "1"
+          DRY_RUN: ${{ inputs.dry_run == true && '1' || '0' }}
+          LOG_LEVEL: INFO
+        run: |
+          if [ -n "${{ inputs.project }}" ]; then
+            python main.py --project "${{ inputs.project }}"
+          else
+            python main.py
+          fi
+
+      - name: Upload draft artefacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: case-study-output
+          path: output/
+          if-no-files-found: ignore
+          retention-days: 14

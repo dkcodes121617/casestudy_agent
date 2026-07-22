@@ -1,1 +1,23 @@
-#casestudy requirements
+# ── WizCodes Case Study Agent — dependencies ──
+# Deliberately LIGHTER than the blog agent's: there is no uniqueness gate here, so
+# sentence-transformers and numpy (torch, ~2GB) are not needed. The blog agent
+# needs embeddings because its subject space is open and it must not repeat
+# itself; this agent's subjects are 30 known projects, so uniqueness is inherent
+# and the selector is deterministic.
+
+# NOTE: no langgraph. The blog agent's graph earns its keep — five distinct loops
+# with conditional edges between them. This pipeline has ONE loop (validate ->
+# rewrite) and everything else is a gate that passes or aborts, which `if` already
+# expresses. See the header of casestudy/run.py.
+
+# HTTP to the Claude-compatible proxy. We speak the Anthropic Messages API shape
+# directly — requests gives full control over headers, including the CLI
+# User-Agent the proxy's Cloudflare requires (see core/llm/client.py).
+requests>=2.32.0
+
+# Publishing to the private site repo
+GitPython>=3.1.43
+
+# Config / resilience
+python-dotenv>=1.0.1
+tenacity>=9.0.0

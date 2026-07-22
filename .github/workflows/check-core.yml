@@ -1,0 +1,40 @@
+name: Check core sync
+
+# core/ is a COPY of the blog agent's proxy client and facts snapshot. Two copies
+# drift, and this particular drift surfaces months later as a mystery 403 nobody
+# connects to an upstream fix.
+#
+# This turns "the fix never reached the case study agent" from a silent six-month
+# bug into a failing check within days.
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"   # Mondays, 06:00 UTC
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout agent
+        uses: actions/checkout@v4
+        with:
+          path: casestudy_agent
+
+      - name: Checkout blog agent (upstream of core/)
+        uses: actions/checkout@v4
+        with:
+          repository: dkcodes121617/blog_agent
+          path: blog_agent
+          # Public repo, so no token needed. If it is ever made private, add a
+          # read-only PAT here as `token:`.
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Compare core/ against upstream
+        working-directory: casestudy_agent
+        run: python tools/core_sync.py check --upstream ../blog_agent

@@ -60,3 +60,9 @@ dmypy.json
 
 # Misc
 .python-version
+# Cloned site repo (the publisher checks it out at runtime)
+site_repo/
+
+# Generated drafts
+output/*
+!output/.gitkeep

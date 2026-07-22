@@ -1,0 +1,14 @@
+{
+  "core/facts/snapshot.py": {
+    "sha256": "6af4f98681f590f7b38455f7875274676b37bcdba26d66d37b0b825bcaac6718",
+    "source": "facts/snapshot.py"
+  },
+  "core/llm/client.py": {
+    "sha256": "09b718ac9f9f57433ace3f01664ab7f48689979f921f4b4c2f395b791864d0d2",
+    "source": "llm/client.py"
+  },
+  "core/llm/sanitize.py": {
+    "sha256": "2a71d61b51a1ee705bea6e4d784d21b92a06b94a9091db7d1c2717c64bc9955e",
+    "source": "llm/sanitize.py"
+  }
+}
