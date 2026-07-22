@@ -33,7 +33,7 @@ from pathlib import Path
 from casestudy.corpus import Corpus, load_brief
 from casestudy.prompts import library as P
 from casestudy.queue import Candidate
-from casestudy.validators import claims, confidentiality, mdx as mdxv, status as statusv
+from casestudy.validators import claims, confidentiality, entry as entryv, mdx as mdxv, status as statusv
 from core.config import CONFIG
 from core.llm.client import LLMClient, LLMError, LLMTransient
 from core.llm.sanitize import sanitize_prose
@@ -170,7 +170,10 @@ def run_once(candidate: Candidate, corpus: Corpus, site_dir=None) -> dict:
             body, archetype=archetype, hide_status=project.hide_status, slug=slug,
             known_blog_slugs=set(corpus.blog_slugs),
             known_study_slugs=corpus.written_slugs,
-            mockup_keys=_mockup_keys(site_dir),
+            # Project-scoped, not global. The unfiltered set let a study
+            # reference another project's UI and pass — the exact thing
+            # _mockup_keys' own docstring says the filter prevents.
+            mockup_keys=_mockup_keys(site_dir, project_id=project.id),
         )
         sr = statusv.scan(body, hide_status=project.hide_status)
         # Evidence = "Safe to publish" AND "Metrics". Both are legitimate sources
@@ -225,7 +228,41 @@ def run_once(candidate: Candidate, corpus: Corpus, site_dir=None) -> dict:
         return _abort("confidentiality adjudicator raised concerns", report, slug=slug, body=body)
     report.append("confidentiality: PASS (patterns, denylist and adjudicator)")
 
-    # ── 8. Assemble ──
+    # ── 8. Build the registry entry, then GATE IT TOO ──
+    #
+    # Everything above validated `body` only. The typed entry — metrics, the seven
+    # glance fields, the FAQ, hero.mockup — went straight to git unchecked, which
+    # is how "MindMaze Junior took six weeks from initial prototype to delivery"
+    # reached production as an invented client timeline while the run reported
+    # claims: PASS.
+    #
+    # The entry is a string, and claims/status already take text, so they simply
+    # run over it as well. entryv adds the structural checks: metric source
+    # traceability, hero.mockup resolvability, glance self-containment.
+    registry_entry = _render_registry_entry(
+        project, archetype, plan, spec, corpus,
+        mockups=sorted(_mockup_keys(site_dir, project_id=project.id)),
+    )
+
+    er = entryv.validate(
+        registry_entry,
+        project_metrics=project.metrics,
+        # Same evidence set as claims.scan — the project description is
+        # published data and just as legitimate a source as the brief.
+        brief_evidence=brief.safe + chr(10) + brief.metrics + chr(10) + project.description,
+        valid_mockups=_mockup_keys(site_dir, project_id=project.id),
+        project_name=project.name,
+    )
+    esr = statusv.scan(registry_entry, hide_status=project.hide_status)
+    ecr = claims.scan(registry_entry, project_metrics=project.metrics,
+                      brief_safe=brief.safe + chr(10) + brief.metrics,
+                      project_description=project.description)
+    report += [er.render(), f"entry status: {esr.render()}", f"entry claims: {ecr.render()}"]
+    if not (er.ok and esr.clean and ecr.clean):
+        return _abort("registry entry failed validation",
+                      report, slug=slug, body=body)
+
+    # ── 9. Assemble ──
     state = {
         "status": "ready",
         "slug": slug,
@@ -234,10 +271,7 @@ def run_once(candidate: Candidate, corpus: Corpus, site_dir=None) -> dict:
         "body_mdx": body,
         "spec": spec,
         "plan": plan,
-        "registry_entry": _render_registry_entry(
-            project, archetype, plan, spec, corpus,
-            mockups=sorted(_mockup_keys(site_dir, project_id=project.id)),
-        ),
+        "registry_entry": registry_entry,
         "report": "\n".join(report),
     }
 

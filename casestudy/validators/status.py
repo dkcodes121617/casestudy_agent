@@ -65,6 +65,12 @@ ALL_RULES = STEMS + PHRASES + ENTITIES
 _FENCE = re.compile(r"```.*?```", re.S)
 _COMPONENT = re.compile(r"<[A-Z].*?/>", re.S)
 
+# TypeScript comments. When this scans a registry entry rather than an MDX body,
+# the entry carries the comments explaining WHY a rule exists — including, with
+# perfect irony, "// no shipped, launched or released claim, which is what
+# hideStatus governs". A comment is not published content.
+_TS_COMMENT = re.compile(r"//.*|/\*[\s\S]*?\*/")
+
 
 @dataclass
 class StatusFinding:
@@ -92,7 +98,7 @@ class StatusReport:
 
 
 def _prose_only(mdx: str) -> str:
-    return _COMPONENT.sub(" ", _FENCE.sub(" ", mdx))
+    return _TS_COMMENT.sub(" ", _COMPONENT.sub(" ", _FENCE.sub(" ", mdx)))
 
 
 def scan(body_mdx: str, *, hide_status: bool) -> StatusReport:

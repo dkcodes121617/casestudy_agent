@@ -39,6 +39,46 @@ _NUMBER = re.compile(
     r"(?<![\w./-])(\d[\d,]*(?:\.\d+)?)\s*"
     r"(%|ms|s\b|k\b|m\b|x\b|kw\b|gb\b|mb\b|hours?|days?|weeks?|months?|years?)?", re.I)
 
+# ── Word-numbers ──
+#
+# The gap that let the one real falsehood through. `_NUMBER` only matches digits,
+# so "took six weeks from initial prototype to delivery" — an invented delivery
+# timeline for a real client — was never even considered, and the run reported
+# "0 numeral(s) traced".
+#
+# Only DURATION and TEAM-SIZE units are matched, deliberately. "six platforms" and
+# "four game modes" are countable facts the surrounding prose establishes; "six
+# weeks" and "three engineers" are commercial claims about an engagement that a
+# prospect will quote back. The units are the discriminator, not the number.
+# Vague quantifiers are deliberately ABSENT. "a few hours of reading ten reports"
+# describes the problem being solved, not a commitment, and nobody quotes it back
+# as one — it flagged Cyber Agent's own study. The danger is a SPECIFIC invented
+# figure, so precision is a discriminator alongside the unit.
+#
+# Singular is excluded too: "one engineer could maintain this" is a
+# capability statement in ordinary English, not a claim that one engineer
+# was staffed. Invented engagement facts are plural — "six weeks",
+# "three engineers".
+_WORD_NUM = re.compile(
+    r"\b(two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s+"
+    r"(week|month|day|hour|year|sprint|engineer|developer|designer|person|people|"
+    r"headcount|fte)s?\b", re.I)
+
+# Markdown links are stripped before scanning. A link to a real post titled
+# "idea to MVP in six weeks" is a citation, not a claim about this engagement —
+# it flagged SolarSathi's study for linking to the blog.
+_MD_LINK = re.compile(r"\[[^\]]*\]\([^)]*\)")
+
+# TypeScript comments — see the note in status.py. Registry entries carry the
+# reasoning beside the data, and the reasoning is not a claim.
+_TS_COMMENT = re.compile(r"//.*|/\*[\s\S]*?\*/")
+
+# Structural field values in a registry entry. `testimonialId: 13` is a foreign
+# key, not a claim about anything; dates are metadata. Scanning them reports the
+# entry's own plumbing as invented statistics.
+_ID_FIELD = re.compile(
+    r"\b(testimonialId|published|updated|width|height|x|y)\s*:\s*'?[\d-]+'?", re.I)
+
 _FENCE = re.compile(r"```.*?```", re.S)
 
 # Self-closing JSX blocks. These MUST be stripped before scanning, and the reason
@@ -88,7 +128,7 @@ def scan(
 ) -> ClaimReport:
     report = ClaimReport()
     evidence = _evidence(project_metrics, brief_safe, project_description)
-    text = _COMPONENT.sub(" ", _FENCE.sub(" ", body_mdx))
+    text = _ID_FIELD.sub(" ", _TS_COMMENT.sub(" ", _MD_LINK.sub(" ", _COMPONENT.sub(" ", _FENCE.sub(" ", body_mdx)))))
 
     for m in _NUMBER.finditer(text):
         raw, unit = m.group(1), (m.group(2) or "")
@@ -112,6 +152,18 @@ def scan(
         report.findings.append(ClaimFinding(
             value=token,
             context=text[lo: m.end() + 60].replace("\n", " ").strip(),
+        ))
+
+    # ── Word-numbers with a duration or team unit ──
+    for m in _WORD_NUM.finditer(text):
+        phrase = m.group(0)
+        report.checked += 1
+        if phrase.lower() in evidence:
+            continue
+        lo = max(0, m.start() - 60)
+        report.findings.append(ClaimFinding(
+            value=phrase,
+            context=" ".join(text[lo: m.end() + 60].split()),
         ))
 
     if report.findings:

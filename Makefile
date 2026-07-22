@@ -31,3 +31,5 @@ run:
 
 selftest:
 	@python tools/selftest.py
+	@echo ""
+	@python tools/entrycheck.py
