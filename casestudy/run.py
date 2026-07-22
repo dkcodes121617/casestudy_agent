@@ -247,8 +247,8 @@ def run_once(candidate: Candidate, corpus: Corpus, site_dir=None) -> dict:
         log.info("DRY_RUN — wrote output/%s.mdx, nothing pushed", slug)
         return state
 
-    from core.publish.pr_publisher import publish_pr
-    branch = publish_pr(state, _pr_body(report))
+    from core.publish.pr_publisher import publish
+    branch = publish(state, _pr_body(report))
     state["status"] = "published"
     state["branch"] = branch
     return state

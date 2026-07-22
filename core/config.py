@@ -65,10 +65,20 @@ class Config:
     studies_per_month: int = _int("STUDIES_PER_MONTH", 1)
 
     # ── Safety ──
-    # A case study names a real client. Unlike the blog agent, this one NEVER
-    # pushes to main: it opens a pull request for a human to merge. Set to 0 only
-    # if you genuinely want unattended publishing, which is not recommended.
-    open_pr: bool = _bool("OPEN_PR", True)
+    # OPEN_PR=1 opens a pull request; OPEN_PR=0 commits straight to main, exactly
+    # like the blog agent, and the site's deploy workflow takes it live.
+    #
+    # Production runs direct. That is a real choice with a real cost: every gate
+    # still runs and still aborts, but nobody reads the study before the world
+    # does. It is defensible because the per-project confidentiality scope is
+    # owner-supplied — not because the guards are infallible. They model KNOWN
+    # failure shapes (release claims, untraceable figures, credential values,
+    # denylist echoes); they cannot model a relationship nuance.
+    #
+    # This flag was dead for several commits: declared here, set in the workflow,
+    # and read by nothing, so OPEN_PR=0 silently did nothing. It is now the real
+    # switch — see core/publish/pr_publisher.publish().
+    open_pr: bool = _bool("OPEN_PR", False)
     # A brief containing [NEEDS REVIEW] blocks the writer. Turning this off would
     # let the agent invent the very things the marker exists to flag.
     require_clean_brief: bool = _bool("REQUIRE_CLEAN_BRIEF", True)

@@ -1,8 +1,8 @@
 # WizCodes Case Study Agent
 
 Writes and publishes **1–2 case studies per month** to the WizCodes site, grounded
-in real project data, gated by deterministic safety checks, and **opened as a pull
-request for a human to merge**.
+in real project data, gated by deterministic safety checks, and committed straight
+to `main` — the site's deploy workflow takes it live from there.
 
 Same deployment shape as the [blog agent](https://github.com/dkcodes121617/blog_agent):
 a scheduled GitHub Actions workflow on this public repo (unlimited free minutes, no
@@ -22,7 +22,7 @@ The two agents look similar and are shaped by opposite problems.
 | Core risk | Repeating itself | **Leaking client confidences** |
 | Uniqueness gate | Essential (MiniLM embeddings) | Unnecessary — subjects are inherently unique |
 | Cadence | 1–2 per day | 1–2 per **month** |
-| Publishing | Push to `main`, unattended | **Pull request. A human merges.** |
+| Publishing | Push to `main`, unattended | Push to `main` (`OPEN_PR=0`, the default). PR mode available. |
 | Failed check | Fix budget, then ship anyway | **Hard abort. No budget.** |
 
 Three consequences worth understanding before changing anything:
@@ -41,6 +41,13 @@ already expresses. See the header of `casestudy/run.py`.
 fact-check flag because its worst case is a slightly wrong sentence about the
 industry. Here the worst case is a breached client confidence, and it is not
 recoverable by editing the page afterwards — it has already been read and cached.
+
+**Publishing mode is a real decision.** `OPEN_PR=0` (the default) commits straight
+to `main`. Every gate still runs and still aborts, but nobody reads the study
+before the world does. That is defensible because the per-project confidentiality
+scope is owner-supplied — not because the guards are infallible: they model known
+failure shapes and cannot model a relationship nuance. Run with `open_pr: true`
+from the Actions tab to get a review branch for anything sensitive.
 
 ---
 
@@ -86,9 +93,9 @@ the blog agent's ordering lesson, applied.
 **Keep them in sync** — the site build is the backstop, and the two disagreeing is
 worse than either being slightly wrong.
 
-There is deliberately **no escape hatch**. The human override is the PR: rewrite the
-sentence and re-run. That costs an affirmative edit rather than a click past a
-warning.
+There is deliberately **no escape hatch**. Nothing can flag a draft past a gate; the
+override is to rewrite the sentence and re-run, which costs an affirmative edit
+rather than a click past a warning.
 
 ---
 
@@ -134,7 +141,8 @@ cp .env.example .env          # fill in the proxy key
 
 make plan                     # ranked queue, offline, instant
 make dry                      # generate to output/, touch no git
-make run                      # generate and open a PR
+make run                      # generate and publish to main
+OPEN_PR=1 make run            # generate and open a PR for review instead
 ```
 
 ---
@@ -145,12 +153,13 @@ In this repo → **Settings → Secrets and variables → Actions**:
 
 - `ANTHROPIC_API_KEY` — the ClaudeStore key.
 - `PUBLISH_TOKEN` — a fine-grained PAT scoped to **only** the site repo, with
-  **Contents: Read and write** *and* **Pull requests: Read and write**. (The blog
-  agent's token needs only Contents; this one opens PRs.) Actions reserves the name
-  `GITHUB_TOKEN`, so the secret is `PUBLISH_TOKEN` and the workflow maps it.
+  **Contents: Read and write**, plus **Pull requests: Read and write** if you ever
+  use PR mode. Actions reserves the name `GITHUB_TOKEN`, so the secret is
+  `PUBLISH_TOKEN` and the workflow maps it.
 
-The workflow runs on the 1st and 15th at 09:00 UTC, plus a manual **Run workflow**
-button with a `dry_run` toggle (defaulting to true) and an optional project id.
+The workflow runs on the 1st and 15th at 09:00 UTC and publishes directly. The
+manual **Run workflow** button adds an optional project id, a `dry_run` toggle, and
+an `open_pr` toggle for anything you want to read first.
 
 > **Keep-alive:** GitHub disables scheduled workflows after ~60 days with no commits.
 > Push any small change occasionally, or use the one-click re-enable it emails you.

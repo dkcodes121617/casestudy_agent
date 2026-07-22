@@ -74,22 +74,33 @@ def _insert_registry(studies_ts: str, entry: str) -> str:
     return studies_ts[:close] + "\n" + entry.rstrip() + studies_ts[close:]
 
 
-def publish_pr(state: dict, report_body: str) -> str:
-    """Write files, branch, commit, push, open a PR. Returns the branch name."""
-    if not CONFIG.github_token:
-        raise RuntimeError("GITHUB_TOKEN not set — cannot publish")
+def publish(state: dict, report_body: str) -> str:
+    """Publish, honouring OPEN_PR.
 
-    repo = ensure_repo()
+    `OPEN_PR` was declared in config.py and set in the workflow from the first
+    commit — and NOTHING READ IT. `run.py` called publish_pr() unconditionally, so
+    setting OPEN_PR=0 looked like it switched to direct publishing and silently
+    did nothing at all. A config flag that appears to work and doesn't is worse
+    than no flag; it is now the real switch.
+
+    OPEN_PR=1 (default) — branch + pull request, a human merges.
+    OPEN_PR=0           — commit straight to main, exactly like the blog agent,
+                          and the site's deploy workflow takes it live.
+
+    Direct mode is a real choice with a real cost: every guard still runs and
+    still aborts, but nobody reads the study before the world does. It is
+    defensible because the confidentiality scope is owner-supplied per project —
+    not because the guards are infallible.
+    """
+    if CONFIG.open_pr:
+        return publish_pr(state, report_body)
+    return publish_direct(state, report_body)
+
+
+def _write_files(repo: Repo, state: dict) -> str:
+    """Write the .mdx and insert the registry entry. Returns the mdx path."""
     root = Path(repo.working_tree_dir)
     slug = state["slug"]
-    branch = f"case-study/{slug}"
-
-    # Start from a clean branch off the target, so a re-run after a failure does
-    # not inherit a half-written previous attempt.
-    repo.git.checkout(CONFIG.github_branch)
-    if branch in repo.heads:
-        repo.git.branch("-D", branch)
-    repo.git.checkout("-b", branch)
 
     mdx_rel = f"{CONFIG.studies_content_rel}/{slug}.mdx"
     mdx_path = root / mdx_rel
@@ -105,6 +116,50 @@ def publish_pr(state: dict, report_body: str) -> str:
     if new_ts.count(f"slug: '{slug}'") != 1:
         raise RuntimeError("registry insertion sanity check failed")
     registry_path.write_text(new_ts, encoding="utf-8")
+    return mdx_rel
+
+
+def publish_direct(state: dict, report_body: str) -> str:
+    """Commit straight to main. Same shape as the blog agent's publisher.
+
+    Pushing to `src/**` is what triggers the site's deploy workflow, so this is
+    the path that actually puts a study live without a human in it.
+    """
+    if not CONFIG.github_token:
+        raise RuntimeError("GITHUB_TOKEN not set — cannot publish")
+
+    repo = ensure_repo()
+    repo.git.checkout(CONFIG.github_branch)
+    mdx_rel = _write_files(repo, state)
+
+    repo.git.add(mdx_rel, CONFIG.studies_registry_rel)
+    repo.git.commit(
+        "-m", f"case study: {state['project_name']}",
+        "-m", f"Automated. archetype={state.get('archetype', '')}\n\n{report_body}",
+    )
+    log.info("pushing to %s", CONFIG.github_branch)
+    repo.remotes.origin.push(CONFIG.github_branch)
+    log.info("published %s — the site deploy workflow takes it from here", mdx_rel)
+    return CONFIG.github_branch
+
+
+def publish_pr(state: dict, report_body: str) -> str:
+    """Write files, branch, commit, push, open a PR. Returns the branch name."""
+    if not CONFIG.github_token:
+        raise RuntimeError("GITHUB_TOKEN not set — cannot publish")
+
+    repo = ensure_repo()
+    slug = state["slug"]
+    branch = f"case-study/{slug}"
+
+    # Start from a clean branch off the target, so a re-run after a failure does
+    # not inherit a half-written previous attempt.
+    repo.git.checkout(CONFIG.github_branch)
+    if branch in repo.heads:
+        repo.git.branch("-D", branch)
+    repo.git.checkout("-b", branch)
+
+    mdx_rel = _write_files(repo, state)
 
     repo.git.add(mdx_rel, CONFIG.studies_registry_rel)
     repo.git.commit("-m", f"case study: {state['project_name']}",
@@ -112,7 +167,7 @@ def publish_pr(state: dict, report_body: str) -> str:
     log.info("pushing branch %s", branch)
     repo.remotes.origin.push(f"{branch}:{branch}", set_upstream=True, force=True)
 
-    _open_pr(root, branch, state, report_body)
+    _open_pr(Path(repo.working_tree_dir), branch, state, report_body)
     return branch
 
 

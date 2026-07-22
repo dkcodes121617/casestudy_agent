@@ -26,7 +26,11 @@ on:
       dry_run:
         description: "Generate to output/ without touching git"
         type: boolean
-        default: true
+        default: false
+      open_pr:
+        description: "Open a PR for review instead of publishing straight to main"
+        type: boolean
+        default: false
 
 concurrency:
   group: publish-case-study
@@ -68,7 +72,11 @@ jobs:
           GIT_AUTHOR_NAME: WizCodes Case Study Bot
           GIT_AUTHOR_EMAIL: business@wizcodes.site
           STUDIES_PER_MONTH: "1"
-          OPEN_PR: "1"
+          # Direct publishing, same as the blog agent: commit to main and let the
+          # site's deploy workflow take it live. Every gate still runs and still
+          # aborts — the difference is nobody reads the study before the world
+          # does. Tick "open_pr" on a manual run to get a review branch instead.
+          OPEN_PR: ${{ inputs.open_pr == true && '1' || '0' }}
           REQUIRE_CLEAN_BRIEF: "1"
           DRY_RUN: ${{ inputs.dry_run == true && '1' || '0' }}
           LOG_LEVEL: INFO
