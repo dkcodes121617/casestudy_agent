@@ -43,9 +43,31 @@ log = logging.getLogger("agent.run")
 MAX_REWRITES = 2
 
 
-def _abort(reason: str, report: list[str]) -> dict:
+def _abort(reason: str, report: list[str], *, slug: str = "", body: str = "") -> dict:
+    """Abort the run, and WRITE THE EVIDENCE.
+
+    Originally this wrote nothing, so a failed run left no trace of the draft that
+    failed or the finding that stopped it — one log line, and you had to re-run
+    (and re-pay) to see anything. An abort is precisely when the artefact is most
+    useful, so the report always lands and the rejected draft lands beside it as
+    `<slug>.aborted.mdx`.
+
+    Note the adjudicator and the writer are both non-deterministic: the same
+    project can abort on one run and pass on the next because the draft differed.
+    That is the guard working, not flapping — but it does mean the saved artefact
+    is the only record of what the rejected draft actually said.
+    """
     log.error("ABORT: %s", reason)
-    return {"status": "aborted", "abort_reason": reason, "report": "\n".join(report)}
+    full = "\n".join(report + [f"\nABORTED: {reason}"])
+    if slug:
+        try:
+            CONFIG.output_dir.mkdir(parents=True, exist_ok=True)
+            (CONFIG.output_dir / f"{slug}.report.txt").write_text(full, encoding="utf-8")
+            if body:
+                (CONFIG.output_dir / f"{slug}.aborted.mdx").write_text(body, encoding="utf-8")
+        except OSError as e:
+            log.warning("could not write abort artefacts: %s", e)
+    return {"status": "aborted", "abort_reason": reason, "report": full}
 
 
 def run_once(candidate: Candidate, corpus: Corpus, site_dir=None) -> dict:
@@ -140,13 +162,14 @@ def run_once(candidate: Candidate, corpus: Corpus, site_dir=None) -> dict:
         log.warning("mdx validation failed (attempt %d):\n%s", attempt, r.render())
         feedback = "\n".join(r.errors)
     else:
-        return _abort("could not produce contract-valid MDX within the rewrite budget", report)
+        return _abort("could not produce contract-valid MDX within the rewrite budget",
+                      report + [r.render()], slug=slug, body=body)
 
     # ── 5. Status guard (deterministic) ──
     sr = statusv.scan(body, hide_status=project.hide_status)
     report.append(sr.render())
     if not sr.clean:
-        return _abort("release claims on a hideStatus study", report + [sr.render()])
+        return _abort("release claims on a hideStatus study", report + [sr.render()], slug=slug, body=body)
 
     # ── 6. Claims traceability (deterministic) ──
     # Evidence = "Safe to publish" AND "Metrics". Both are legitimate sources for
@@ -157,14 +180,14 @@ def run_once(candidate: Candidate, corpus: Corpus, site_dir=None) -> dict:
                      project_description=project.description)
     report.append(cr.render())
     if not cr.clean:
-        return _abort("untraceable numbers in the draft", report + [cr.render()])
+        return _abort("untraceable numbers in the draft", report + [cr.render()], slug=slug, body=body)
 
     # ── 7. Confidentiality: patterns + denylist, then the adjudicator ──
     spec_text = json.dumps(spec, ensure_ascii=False)
     conf = confidentiality.scan(body, spec_text=spec_text, denylist=brief.confidential)
     if not conf.clean:
         report.append(conf.render())
-        return _abort("confidentiality scan failed", report)
+        return _abort("confidentiality scan failed", report, slug=slug, body=body)
 
     try:
         sys_a, usr_a = confidentiality.adjudicator_prompt(body, project.client, project.name)
@@ -179,7 +202,7 @@ def run_once(candidate: Candidate, corpus: Corpus, site_dir=None) -> dict:
         report.append(f"confidentiality adjudicator raised {len(concerns)} concern(s):")
         for c in concerns:
             report.append(f"  - {c.get('quote', '')!r}: {c.get('why', '')}")
-        return _abort("confidentiality adjudicator raised concerns", report)
+        return _abort("confidentiality adjudicator raised concerns", report, slug=slug, body=body)
     report.append("confidentiality: PASS (patterns, denylist and adjudicator)")
 
     # ── 8. Assemble ──

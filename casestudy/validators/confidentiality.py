@@ -130,7 +130,12 @@ def scan(body_mdx: str, spec_text: str = "", denylist: list[str] | None = None) 
         report.findings.extend(_denylist_hits(text, denylist))
 
     if report.findings:
-        log.error("confidentiality scan found %d issue(s)", len(report.findings))
+        # Log the RULE and the MATCH, not just a count. A bare count tells you
+        # nothing about whether it was a real disclosure or a pattern misfiring
+        # on ordinary prose, and that is the first thing you need to know.
+        log.error("confidentiality scan found %d issue(s):", len(report.findings))
+        for f in report.findings:
+            log.error("  [%s] %r — …%s…", f.rule, f.match, f.context[:110])
     return report
 
 
