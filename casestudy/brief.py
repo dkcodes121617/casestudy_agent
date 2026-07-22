@@ -26,12 +26,14 @@ import argparse
 import sys
 
 from casestudy.corpus import Project, load_corpus
+from casestudy.deck import entry as deck_entry
 from core.config import CONFIG
 
 NR = "[NEEDS REVIEW]"
 
 
 def _draft(p: Project, has_testimonial: bool) -> str:
+    d = deck_entry(p.id) or {}
     src = "products.ts" if p.is_product else "projects.ts"
     lines: list[str] = [f"# {p.name}", ""]
     lines.append(f"<!-- drafted by casestudy.brief from {src} — review before use -->")
@@ -50,7 +52,9 @@ def _draft(p: Project, has_testimonial: bool) -> str:
         lines.append(f"- Client: {p.client}"
                      + (f", {p.client_country}" if p.client_country else "")
                      + f"   (source: {src})")
-        lines.append(f"- {NR} May we name {p.client} in prose, or describe them generically?")
+        lines.append(f"  {p.client} is already published in projects.ts and rendered on")
+        lines.append("  the live /work pages, so naming them here discloses nothing new.")
+        lines.append(f"  {NR} ONLY if that is wrong and the name should be pulled from the site.")
     elif p.client_country:
         lines.append(f"- Client country: {p.client_country}   (source: {src})")
         lines.append(f"- {NR} Client kept confidential in {src} — confirm that still holds.")
@@ -74,7 +78,7 @@ def _draft(p: Project, has_testimonial: bool) -> str:
         lines.append("  or app-store claim may appear anywhere in the study.")
     else:
         lines.append(f"- hideStatus is not set in {src}, so release language is permitted.")
-        lines.append(f"- {NR} Confirm that is still accurate.")
+        lines.append("  projects.ts is the source of truth for this and is kept current.")
 
     if has_testimonial:
         lines.append("- A testimonial exists for this client and will be joined automatically.")
@@ -84,13 +88,31 @@ def _draft(p: Project, has_testimonial: bool) -> str:
 
     lines.append("## The story")
     lines.append("")
-    lines.append(f"- Why they came to us: {NR}")
-    lines.append(f"- What was hard: {NR} "
-                 + ("(the deck names the challenges but not the specifics)"
-                    if not p.is_product else "(what made this worth building)"))
+    if d.get("problem"):
+        lines.append(f"- Why they came to us: {d['problem']}   (source: deck)")
+    else:
+        lines.append(f"- Why they came to us: {NR}")
+
+    if d.get("challenges"):
+        lines.append(f"- What was hard: {d['challenges']}   (source: deck)")
+    else:
+        lines.append(f"- What was hard: {NR}")
+
+    if d.get("solution"):
+        lines.append(f"- How we solved it: {d['solution']}   (source: deck)")
+    if d.get("highlights"):
+        lines.append(f"- Technical highlights: {'; '.join(d['highlights'])}   (source: deck)")
+    if d.get("architecture"):
+        lines.append(f"- Architecture: {d['architecture']}   (source: deck)")
+    if d.get("value"):
+        lines.append(f"- Business value: {d['value']}   (source: deck)")
+
     lines.append(f"- What we decided and why, X over Y: {NR}")
-    lines.append("  No data file records rationale. This is the section that makes a")
-    lines.append("  case study worth reading, and it can only come from you.")
+    lines.append("  THE deck names the technologies but never says why one was chosen")
+    lines.append("  over another. No data file records rationale. This is the section")
+    lines.append("  that makes a case study worth reading, and it can only come from you.")
+    lines.append("  Two or three decisions is enough. If there genuinely were none worth")
+    lines.append("  writing about, say so and the archetype will drop the section.")
     lines.append(f"- What was delivered: {p.description}   (source: {src})")
     lines.append("")
 
