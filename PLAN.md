@@ -731,7 +731,6 @@ party's memory of a chat.
 | 7 | CuePilot specimen (`ai_system`) | ~~Phase 1~~ | ✅ Round 5 |
 | 8 | Study JSON-LD (`Article` + `SoftwareApplication` + `mentions`) | ~~Phase 1~~ | ✅ Round 6 — `src/lib/studySchema.ts`, plus `CollectionPage` on /work |
 | 9 | Per-study OG image | ~~Phase 1~~ | ✅ Round 6 — headline + top metric + stack chips |
-| 10 | Sticky TOC + `Annotated` component | Phase 1 | Open |
 | 11 | `relatedStudies` backfill on Destiny once siblings exist | ~~Phase 3~~ | ✅ Round 6 |
 | 12 | hideStatus-beats-archetype precedence is **still untested** — the two override maps share no key | When an archetype overrides `shipped` | Open |
 | 13 | `ship`-stem false positive **not yet observed in real prose** — Cyber Agent did not trip it | Revisit if it fires | Open |
@@ -739,8 +738,11 @@ party's memory of a chat.
 | 15 | Study architecture diagrams in the image sitemap | ~~Phase 4~~ | ✅ Round 7 — work routes now read `manifest.charts` |
 | 16 | Reverse internal links (service pages linking INTO studies) | ~~Phase 4~~ | ✅ Round 10 — `StudyLinks` on all 3 service pages |
 | 20 | Delete the dead `CASE_STUDY_CONTENT` literal + `LegacyCaseStudyLayout` | ~~Next round~~ | ✅ Round 10 |
-| 21 | **Phase 5 agent scaffolded and self-testing.** Remaining: write 23 briefs, then first live run | Phase 5 | In progress |
-| 22 | SolarSathi brief must whitelist the illustrative "25 kW" figure | With SolarSathi's brief | Open — live true-positive in `make selftest` |
+| 21 | Phase 5 agent: scaffolded, briefs written, first live run green | ~~Phase 5~~ | ✅ Round 11 — `mindmaze-junior` passed every gate |
+| 22 | `make selftest` reports 1 failure: SolarSathi's illustrative "25 kW" | **Needs a decision** | Open — the 7 written studies have no briefs, so the fix I described cannot happen. Either add briefs for them too, or teach selftest to read the study registry as evidence. |
+| 23 | **Phase 2 mockup library** — all 8 keys are scoped to the 7 written studies, so all 23 new ones publish with `mockup: 'REVIEW-ME'` and no product visual | Phase 2 | **Open — the largest remaining gap** |
+| 24 | Destiny + Cyber Agent tour sections have no `<Annotated>` | Phase 2 | Open — 2 warnings in selftest |
+| 25 | Scheduled workflow has never fired; `gh pr create` path never executed in CI | First cron, 1 Aug | Open — untested in production |
 | 17 | Sticky TOC + `Annotated` component | ~~Phase 1~~ | ✅ Round 8 — **Phase 1 kit complete** |
 | 18 | Phase 3 migrations: Nullzec, SolarSathi, AI Lead Agent, Tocablox | ~~Phase 3~~ | ✅ Round 9 — **all 6 legacy studies migrated; `CASE_STUDY_CONTENT` is now empty** |
 | 19 | Pre-existing lint error in `OdometerCounter.tsx` (setState in effect) — untouched by this work | Unscheduled | Open |
