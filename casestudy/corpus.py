@@ -148,6 +148,29 @@ def load_corpus(site_dir: Path | str | None = None) -> Corpus:
     )
 
 
+def count_published_this_month(site_dir: Path | str | None = None) -> int:
+    """How many studies already carry this month's `published:` date.
+
+    The stateless cadence guard, lifted from the blog agent's `count_posts_today`.
+    Rather than persisting how many we published, ask the real source of truth —
+    the registry in the site repo. That works on ephemeral runners and makes
+    double-publishing impossible even though nothing is remembered between runs.
+
+    This exists because `STUDIES_PER_MONTH` was dead config: declared, set in the
+    workflow, described in a comment as controlling cadence, and read by nothing.
+    The cron fires on the 1st AND the 15th, so the real cadence was two a month
+    regardless of the setting.
+    """
+    from datetime import date
+    site_dir = Path(site_dir) if site_dir else _resolve_site_dir()
+    registry = site_dir / CONFIG.studies_registry_rel
+    if not registry.exists():
+        return 0
+    text = registry.read_text(encoding="utf-8", errors="replace")
+    prefix = date.today().strftime("%Y-%m")
+    return len(re.findall(rf"published:\s*'{re.escape(prefix)}-\d{{2}}'", text))
+
+
 def _resolve_site_dir() -> Path:
     if (CONFIG.site_repo_dir / CONFIG.projects_rel).exists():
         return CONFIG.site_repo_dir

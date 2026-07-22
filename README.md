@@ -157,9 +157,27 @@ In this repo → **Settings → Secrets and variables → Actions**:
   use PR mode. Actions reserves the name `GITHUB_TOKEN`, so the secret is
   `PUBLISH_TOKEN` and the workflow maps it.
 
-The workflow runs on the 1st and 15th at 09:00 UTC and publishes directly. The
-manual **Run workflow** button adds an optional project id, a `dry_run` toggle, and
-an `open_pr` toggle for anything you want to read first.
+## Fully unattended
 
-> **Keep-alive:** GitHub disables scheduled workflows after ~60 days with no commits.
-> Push any small change occasionally, or use the one-click re-enable it emails you.
+Nothing needs a human once the secrets are set.
+
+- The cron fires on the **1st and 15th** at 09:00 UTC.
+- `STUDIES_PER_MONTH` (default 1) is enforced against the site registry, so the
+  second slot only publishes if the first did not. It is a retry, not a second
+  study.
+- The queue picks the project. No LLM, no input.
+- It commits to `main`, and the site's deploy workflow takes it live.
+
+The manual **Run workflow** button is for exceptions: a specific project id, a
+`dry_run`, or `open_pr` for something you want to read first.
+
+### Why there is a heartbeat commit
+
+GitHub disables a scheduled workflow after ~60 days of repository **inactivity**,
+and inactivity means no commits — workflow runs do not count. This agent commits to
+the *site* repo and never to its own, so on a monthly cron the schedule would have
+switched itself off around the third run, silently, with no failure and no email.
+
+Every scheduled run therefore appends a line to `.runs/history.log` and pushes it.
+That keeps the schedule alive and doubles as the run log — the only durable record
+that a skipped-because-quota-met run happened at all.

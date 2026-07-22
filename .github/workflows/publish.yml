@@ -41,7 +41,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
-      contents: read
+      # write, so the heartbeat step below can commit to THIS repo. See the note
+      # on that step: without a commit, GitHub disables the schedule.
+      contents: write
     steps:
       - name: Checkout agent
         uses: actions/checkout@v4
@@ -86,6 +88,30 @@ jobs:
           else
             python main.py
           fi
+
+      # ── Keep the schedule alive ──
+      # GitHub disables a scheduled workflow after ~60 days of repository
+      # INACTIVITY, and inactivity means no commits — workflow runs do not count.
+      # This agent commits to the SITE repo and never to its own, so on a monthly
+      # cron the schedule would have silently switched itself off around the third
+      # run, with no failure and no notification.
+      #
+      # A heartbeat commit fixes that and doubles as the run log: every fire is
+      # recorded with its outcome, which is the only durable record that a
+      # skipped-because-quota-met run happened at all.
+      - name: Heartbeat
+        if: always() && github.event_name == 'schedule'
+        run: |
+          mkdir -p .runs
+          STAMP=$(date -u '+%Y-%m-%d %H:%M UTC')
+          echo "$STAMP  run=${{ github.run_id }}  outcome=${{ job.status }}" >> .runs/history.log
+          tail -n 200 .runs/history.log > .runs/history.tmp
+          mv .runs/history.tmp .runs/history.log
+          git config user.name "WizCodes Case Study Bot"
+          git config user.email "business@wizcodes.site"
+          git add .runs/history.log
+          git diff --staged --quiet || git commit -m "chore: run log $STAMP"
+          git push
 
       - name: Upload draft artefacts
         if: always()

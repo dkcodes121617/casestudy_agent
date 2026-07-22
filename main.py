@@ -5,7 +5,10 @@ public repo (free minutes, no server), reading the real corpus out of the site
 repo, and touching only git. Two deliberate differences:
 
   - MONTHLY, not hourly. Thirty known projects; no reason to rush.
-  - Opens a PULL REQUEST, never pushes to main. A case study names a real client.
+  - Cadence is enforced against the site registry, not remembered, so the two
+    cron slots a month cannot both publish.
+
+Publishing mode is OPEN_PR: direct to main by default, PR on request.
 
 Run modes:
   python main.py                    scheduled: generate one if a slot is due
@@ -79,6 +82,26 @@ def main(argv: list[str]) -> int:
 
     site_dir = _site_dir()
     corpus = load_corpus(site_dir)
+
+    # ── Cadence guard ──
+    # The cron fires on the 1st AND the 15th so a missed or failed slot has a
+    # second chance in the same month. Without this check that meant two studies
+    # a month regardless of STUDIES_PER_MONTH, which was declared, set in the
+    # workflow, documented as the cadence control — and read by nothing.
+    #
+    # Counted from the site registry rather than remembered, so it is correct on
+    # an ephemeral runner and cannot double-publish. A forced manual run skips it
+    # deliberately: if you asked for a specific project, you meant it.
+    if not forced_project:
+        from casestudy.corpus import count_published_this_month
+        published = count_published_this_month(site_dir)
+        if published >= CONFIG.studies_per_month:
+            log.info("cadence: %d study(s) already published this month "
+                     "(STUDIES_PER_MONTH=%d) — nothing due, exiting",
+                     published, CONFIG.studies_per_month)
+            return 0
+        log.info("cadence: %d/%d published this month — a study is due",
+                 published, CONFIG.studies_per_month)
 
     if forced_project:
         candidate = next((c for c in rank(corpus) if c.project.id == forced_project), None)
