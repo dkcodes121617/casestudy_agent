@@ -18,8 +18,11 @@ Three legitimate sources, mirroring `MetricSource` in the site's studies.ts:
 """
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass, field
+
+log = logging.getLogger("agent.claims")
 
 # Numerals that are never a claim about the client.
 _ALLOWED_BARE = re.compile(
@@ -110,5 +113,13 @@ def scan(
             value=token,
             context=text[lo: m.end() + 60].replace("\n", " ").strip(),
         ))
+
+    if report.findings:
+        # Log WHICH numbers, not just how many. A bare count leaves you unable to
+        # tell an invented statistic from a false positive without downloading a
+        # build artefact — exactly the position this left a CI run in.
+        log.error("claims: %d untraceable number(s):", len(report.findings))
+        for f in report.findings:
+            log.error("  %r — …%s…", f.value, f.context[:110])
 
     return report

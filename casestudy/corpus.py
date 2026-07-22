@@ -183,6 +183,45 @@ def _section(text: str, heading: str) -> str:
     return m.group(1).strip() if m else ""
 
 
+# A bullet that DECLARES there is nothing confidential, rather than naming
+# something. Treating it as an entry is how a brief saying "nothing is secret"
+# produced a denylist that matched every draft ever written.
+_NOTHING = re.compile(r"^\s*(nothing|none|n/a|no confidential)\b", re.I)
+
+
+def _denylist(section: str) -> list[str]:
+    """Turn the `## Confidential` section into scanner denylist entries.
+
+    Three rules, all learned from one false positive that would have blocked every
+    project in the corpus:
+
+      1. Only `-` bullets are entries. The drafter writes explanatory prose under
+         them, and an explanation is not a secret.
+      2. Continuation lines fold into their bullet. Split apart, the second half of
+         a sentence ("for this project beyond what is already withheld") becomes an
+         entry made entirely of common words.
+      3. A bullet declaring there is nothing confidential yields NO entry. It is an
+         answer, not an item.
+    """
+    entries: list[str] = []
+    current: str | None = None
+
+    for raw in section.splitlines():
+        if raw.lstrip().startswith("-"):
+            if current:
+                entries.append(current)
+            current = raw.lstrip().lstrip("-").strip()
+        elif current is not None and raw.strip():
+            current += " " + raw.strip()
+    if current:
+        entries.append(current)
+
+    return [
+        e for e in entries
+        if e and NEEDS_REVIEW not in e and not _NOTHING.match(e)
+    ]
+
+
 def load_brief(project_id: str) -> Brief:
     path = CONFIG.briefs_dir / f"{project_id}.md"
     if not path.exists():
@@ -196,12 +235,7 @@ def load_brief(project_id: str) -> Brief:
         path=path,
         exists=True,
         needs_review=text.count(NEEDS_REVIEW),
-        # Every non-empty line of the confidential section becomes a denylist
-        # entry. This section is NEVER shown to the writer — only to the scanner.
-        confidential=[
-            ln.strip(" -\t") for ln in confidential_raw.splitlines()
-            if ln.strip(" -\t") and NEEDS_REVIEW not in ln
-        ],
+        confidential=_denylist(confidential_raw),
         safe=_section(text, "Safe to publish"),
         story=_section(text, "The story"),
         metrics=_section(text, "Metrics"),

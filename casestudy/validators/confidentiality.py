@@ -42,9 +42,23 @@ FORBIDDEN_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     ("user-counts", re.compile(
         r"\b[\d,]{3,}\+?\s*(daily |monthly |active |registered )?(users|customers|installs|"
         r"downloads|subscribers|accounts)\b", re.I)),
+    # A leaked credential is a VALUE, not the word. The original pattern matched a
+    # bare "credential" anywhere, and flagged this FAQ answer:
+    #
+    #   "You own 100% of the code, repository, and all credentials from day one."
+    #
+    # That is the studio's handover promise — client-owned accounts and credentials
+    # are a core message in details.md and llms.txt — so the word appears in nearly
+    # every study, and the rule would have blocked almost all of them. Talking about
+    # credentials is the opposite of disclosing one.
+    #
+    # So: match an assignment, a bearer token, or a recognisable secret prefix.
     ("credentials", re.compile(
-        r"\b(api[_ -]?key|secret[_ -]?key|access[_ -]?token|bearer\s+[A-Za-z0-9]|"
-        r"password|credential|private[_ -]?key|\.env\b)", re.I)),
+        r"\b(api[_ -]?key|secret[_ -]?key|access[_ -]?token|auth[_ -]?token|password|"
+        r"private[_ -]?key|client[_ -]?secret)\s*[:=]\s*\S"
+        r"|\bbearer\s+[A-Za-z0-9._-]{8,}"
+        r"|\b(sk|pk|ghp|gho|github_pat|xox[baprs])[-_][A-Za-z0-9]{8,}"
+        r"|-----BEGIN [A-Z ]*PRIVATE KEY-----", re.I)),
     ("prompt-design", re.compile(
         r"\b(system prompt|our prompt|the prompt (we|they) (use|wrote)|prompt template|"
         r"few-?shot example)\b", re.I)),
@@ -94,18 +108,78 @@ def _contexts(text: str, pattern: re.Pattern[str], rule: str) -> list[Finding]:
     return out
 
 
+# Words that appear in every case study and therefore prove nothing. The denylist
+# matcher needs DISTINCTIVE overlap — a client's product name, a metric name, an
+# internal system — not the shared vocabulary of software writing.
+_COMMON = frozenset("""
+about after again against already among another anything around because become
+before behind being below better between beyond both build building built cannot
+client clients company could course create created current customer customers
+decision decisions delivered delivery design designed detail details different
+during every everything example first found further given however inside instead
+itself large later least little means might money months never number often other
+others output overall people perhaps platform point points process product
+production products project projects provide public really reason release result
+results second several should similar simple since small software solution
+something sometimes still system systems taking team teams technical their there
+these thing things think those three through times today together toward under
+until using usually value values version versions where whether which while whole
+widely within without work working works would write writing written years
+""".split())
+
+# The drafter appends an explanatory parenthetical to owner-supplied entries
+# ("(owner-supplied; fed to the confidentiality scanner…)"). That is documentation
+# about the denylist, not an item on it, and its words would match any draft that
+# happened to discuss the scanner.
+_TRAILING_NOTE = re.compile(r"\s*\([^)]*\)\s*$")
+
+# A line that DECLARES a category is confidential, rather than naming the secret
+# itself. Its words are the case study's own subject matter, so it can only ever
+# produce false positives here. Handed to the adjudicator instead.
+_CATEGORY_LINE = re.compile(
+    r"\b(remains?|are|is|stay|stays)\s+(confidential|private|commercially sensitive|sensitive)\b"
+    r"|\bnot\s+(be\s+)?(disclosed|published|shared)\b"
+    r"|\bnever\s+(publish|disclose|share)\b", re.I)
+
+
 def _denylist_hits(text: str, denylist: list[str]) -> list[Finding]:
     """Fuzzy match against the brief's own `## Confidential` section.
 
-    Matching is on distinctive content words rather than whole lines: a brief line
-    reads like a note ("their margin on installs is thin"), and the draft would
-    paraphrase it rather than quote it. Requiring 3+ rare words from one line to
-    co-occur in a paragraph catches the paraphrase without firing on common words.
+    Matching is on distinctive content words: a brief line reads like a note
+    ("their margin on installs is thin"), the draft would paraphrase rather than
+    quote it, so 3+ rare words co-occurring is the signal.
+
+    ── What this CANNOT do, and why that is fine ──
+    Owners write two very different kinds of line in that section:
+
+      1. CONTENT     "their margin on installs is thin"
+      2. CATEGORY    "Specific business workflow details remain confidential."
+
+    Word-matching works on the first and is meaningless on the second. A category
+    line names the SUBJECT of the case study, so its words are guaranteed to appear
+    — Cubbi's line above flagged Cubbi's own study, which is about a business
+    workflow platform, on the words "specific, business, workflow".
+
+    Chasing that with a bigger stopword list is whack-a-mole: the next category
+    line will name a different subject. So category lines are skipped here and left
+    to the LLM adjudicator, which is asked in plain language whether the draft
+    reveals how the client runs their business — exactly the judgement a regex
+    cannot make. The deterministic layer keeps the cases it can actually decide.
     """
     findings: list[Finding] = []
     lowered = text.lower()
     for line in denylist:
-        words = [w for w in re.findall(r"[a-z]{5,}", line.lower())]
+        if _CATEGORY_LINE.search(line):
+            continue
+        # Only DISTINCTIVE words count. A five-letter filter alone admitted
+        # "project", "already" and "projects" — words present in literally every
+        # case study — and a brief line containing three of them flagged every
+        # draft. The vocabulary a case study is made of cannot be evidence that a
+        # case study leaked something.
+        words = [
+            w for w in re.findall(r"[a-z]{5,}", _TRAILING_NOTE.sub("", line).lower())
+            if w not in _COMMON
+        ]
         if len(words) < 3:
             continue
         hits = [w for w in words if w in lowered]

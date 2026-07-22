@@ -149,38 +149,58 @@ def run_once(candidate: Candidate, corpus: Corpus, site_dir=None) -> dict:
 
         body = "\n\n".join(p.strip() for p in parts if p.strip())
 
-        # ── 4. MDX contract (deterministic, free — runs before any paid check) ──
+        # ── 4. ALL deterministic gates, inside the loop ──
+        #
+        # Status and claims used to run AFTER the loop as unconditional aborts, so
+        # one unsupported figure in one section threw away the entire run — six
+        # model calls and a CI slot — for something the writer fixes immediately
+        # when told. Meanwhile the MDX contract, which is no more important, got
+        # feedback and two retries.
+        #
+        # They now feed the same loop. The gate is NOT relaxed: a draft that still
+        # carries a bad number after the budget still aborts and still publishes
+        # nothing. The difference is that a fixable sentence gets told, once,
+        # instead of costing the run.
+        #
+        # Confidentiality deliberately stays outside. Re-prompting a model that has
+        # disclosed something risks it rephrasing the disclosure rather than
+        # removing it, and "the model had another go" is not a defence for a
+        # breached confidence.
         r = mdxv.validate(
             body, archetype=archetype, hide_status=project.hide_status, slug=slug,
             known_blog_slugs=set(corpus.blog_slugs),
             known_study_slugs=corpus.written_slugs,
             mockup_keys=_mockup_keys(site_dir),
         )
-        if r.ok:
-            report.append(r.render())
+        sr = statusv.scan(body, hide_status=project.hide_status)
+        # Evidence = "Safe to publish" AND "Metrics". Both are legitimate sources
+        # for traceability; the PROJECTED framing constraint on the metrics figures
+        # is enforced by the writer prompt, not by hiding them from the validator.
+        cr = claims.scan(body, project_metrics=project.metrics,
+                         brief_safe=brief.safe + "\n" + brief.metrics,
+                         project_description=project.description)
+
+        if r.ok and sr.clean and cr.clean:
+            report += [r.render(), sr.render(), cr.render()]
             break
-        log.warning("mdx validation failed (attempt %d):\n%s", attempt, r.render())
-        feedback = "\n".join(r.errors)
+
+        problems = list(r.errors)
+        problems += [
+            f'Remove the release claim "{f.match}" — this project makes no claim '
+            f'about being live, shipped or distributed.' for f in sr.findings
+        ]
+        problems += [
+            f'Remove or reword the figure "{f.value}" — it is not supported by the '
+            f'project brief. Say it qualitatively instead, or leave it out.'
+            for f in cr.findings
+        ]
+        log.warning("gates failed (attempt %d): %d mdx, %d status, %d claims",
+                    attempt, len(r.errors), len(sr.findings), len(cr.findings))
+        feedback = "\n".join(problems)
     else:
-        return _abort("could not produce contract-valid MDX within the rewrite budget",
-                      report + [r.render()], slug=slug, body=body)
-
-    # ── 5. Status guard (deterministic) ──
-    sr = statusv.scan(body, hide_status=project.hide_status)
-    report.append(sr.render())
-    if not sr.clean:
-        return _abort("release claims on a hideStatus study", report + [sr.render()], slug=slug, body=body)
-
-    # ── 6. Claims traceability (deterministic) ──
-    # Evidence = "Safe to publish" AND "Metrics". Both are legitimate sources for
-    # traceability; the PROJECTED framing constraint on the metrics figures is
-    # enforced by the writer prompt, not by hiding them from the validator.
-    cr = claims.scan(body, project_metrics=project.metrics,
-                     brief_safe=brief.safe + "\n" + brief.metrics,
-                     project_description=project.description)
-    report.append(cr.render())
-    if not cr.clean:
-        return _abort("untraceable numbers in the draft", report + [cr.render()], slug=slug, body=body)
+        return _abort(
+            "deterministic gates still failing after the rewrite budget",
+            report + [r.render(), sr.render(), cr.render()], slug=slug, body=body)
 
     # ── 7. Confidentiality: patterns + denylist, then the adjudicator ──
     spec_text = json.dumps(spec, ensure_ascii=False)

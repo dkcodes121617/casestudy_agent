@@ -64,3 +64,22 @@ for i,(slug, at) in enumerate(marks):
     for w in r.warnings: print(f"       ! {w}")
 print()
 print(f"{len(marks)-fails}/{len(marks)} specimens pass every validator" if not fails else f"\n{fails} specimen(s) rejected — the VALIDATOR is likely wrong, not the study")
+
+# ── Source integrity ──
+# Regex escapes have twice been silently corrupted into literal control bytes
+# (\b -> 0x08) by tooling, producing patterns that compile fine and match nothing.
+# A confidentiality rule that silently matches nothing is the worst possible
+# failure here, so it is now checked rather than trusted.
+import glob as _glob
+_bad = []
+for _f in _glob.glob('casestudy/**/*.py', recursive=True) + _glob.glob('core/**/*.py', recursive=True):
+    _s = Path(_f).read_text(encoding='utf-8')
+    for _ch, _name in ((chr(8), r'\b'), (chr(12), r'\f'), (chr(11), r'\v'), (chr(7), r'\a')):
+        if _ch in _s:
+            _bad.append(f'{_f}: literal {_name} control byte — regex escape was corrupted')
+if _bad:
+    print('\nSOURCE INTEGRITY FAILURES:')
+    for _b in _bad:
+        print('  ' + _b)
+    raise SystemExit(1)
+print('source integrity: no corrupted regex escapes')

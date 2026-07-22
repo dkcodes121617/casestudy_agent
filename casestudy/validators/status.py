@@ -27,8 +27,11 @@ being slightly wrong.
 """
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass, field
+
+log = logging.getLogger("agent.status")
 
 # Release-state stem families. Word-bounded so "relationship" never trips.
 STEMS: list[tuple[str, re.Pattern[str]]] = [
@@ -108,4 +111,8 @@ def scan(body_mdx: str, *, hide_status: bool) -> StatusReport:
                     context=line[lo: m.end() + 34].strip(),
                 ))
     report.findings.sort(key=lambda f: f.line)
+    if report.findings:
+        log.error("status: %d release claim(s) on a hideStatus study:", len(report.findings))
+        for f in report.findings:
+            log.error("  line %d [%s] %r — %s", f.line, f.rule, f.match, f.context[:90])
     return report
