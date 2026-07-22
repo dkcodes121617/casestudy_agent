@@ -4,8 +4,11 @@ name: Publish case study
 #
 #   1. MONTHLY, not hourly. The corpus is finite — 30 projects — so there is no
 #      reason to rush it, and each study is a page a prospect reads closely.
-#   2. Opens a PULL REQUEST, never pushes to main. A case study names a real
-#      client; a human merges.
+#   2. Publishes DIRECT to main, like the blog agent. This started as PR-review —
+#      a case study names a real client, so a human merged — and moved to direct
+#      once the gate stack could carry it: confidentiality, claims, status, entry
+#      and MDX all abort rather than publish. `open_pr` on a manual run still
+#      gives a review branch when you want one.
 #
 # Free on this public repo (public repos get unlimited Actions minutes), so there
 # is no server to pay for. The site repo's own deploy workflow builds and runs
@@ -73,6 +76,10 @@ jobs:
           GITHUB_BRANCH: main
           GIT_AUTHOR_NAME: WizCodes Case Study Bot
           GIT_AUTHOR_EMAIL: business@wizcodes.site
+          # Spelled out rather than left to the config default, for the same reason
+          # the models above are: the run log should record what the run actually
+          # used, and config.py is not readable after the fact.
+          INDEXNOW_KEY: 2df4018dbb1444e6bc48faf84fc0ff39
           STUDIES_PER_MONTH: "1"
           # Direct publishing, same as the blog agent: commit to main and let the
           # site's deploy workflow take it live. Every gate still runs and still

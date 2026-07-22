@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from pathlib import Path
 
 from casestudy.corpus import Corpus, load_brief
@@ -247,9 +248,11 @@ def run_once(candidate: Candidate, corpus: Corpus, site_dir=None) -> dict:
     er = entryv.validate(
         registry_entry,
         project_metrics=project.metrics,
-        # Same evidence set as claims.scan — the project description is
-        # published data and just as legitimate a source as the brief.
-        brief_evidence=brief.safe + chr(10) + brief.metrics + chr(10) + project.description,
+        # Split, NOT pooled: `source` is a provenance claim, so each label is
+        # checked against the thing it names. claims.scan still pools, correctly —
+        # it asks "does this number exist anywhere", a different question.
+        brief_evidence=brief.safe + chr(10) + brief.metrics,
+        project_description=project.description,
         valid_mockups=_mockup_keys(site_dir, project_id=project.id),
         project_name=project.name,
     )
@@ -455,8 +458,8 @@ def _render_registry_entry(project, archetype: str, plan: dict, spec: dict, corp
     }},
 {f"    testimonialId: {tid}," if tid else ""}
     relatedService: '{_service_for(project)}',
-    relatedPosts: [],
-    relatedStudies: [],
+    relatedPosts: [{", ".join(f"'{_esc(s)}'" for s in _related_posts(project, plan, corpus))}],
+    relatedStudies: [{", ".join(f"'{_esc(s)}'" for s in _related_studies(project, corpus))}],
 
     faq: [
 {faq}
@@ -469,6 +472,50 @@ def _render_registry_entry(project, archetype: str, plan: dict, spec: dict, corp
 {"    hideStatus: true," if project.hide_status else ""}
   }},
 """
+
+
+def _related_posts(project, plan: dict, corpus: Corpus) -> list[str]:
+    """Blog posts this study should link to, chosen by keyword overlap.
+
+    These were hardcoded `[]` against a type documenting "Enforced: ≥1", so every
+    generated study joined no topic cluster at all — while all seven hand-written
+    ones carry two. The data was already in `corpus.blog_slugs`; nothing was
+    reading it.
+
+    Matching is on slug words, which is crude and right: blog slugs are built from
+    their primary keyword, so an overlap with this study's keywords IS topical
+    relevance. No LLM call for something a set intersection answers.
+    """
+    terms = {
+        w for src in (plan.get("primary_keyword", ""), " ".join(plan.get("secondary_keywords", [])),
+                      project.category, project.industry, " ".join(project.tech))
+        for w in re.findall(r"[a-z]{4,}", src.lower())
+    }
+    scored = []
+    for slug in corpus.blog_slugs:
+        words = set(re.findall(r"[a-z]{4,}", slug))
+        overlap = len(words & terms)
+        if overlap:
+            scored.append((overlap, slug))
+    scored.sort(key=lambda x: (-x[0], x[1]))
+    picked = [s for _, s in scored[:2]]
+    # Never emit nothing: a study with no cluster link is worse than one with a
+    # loosely-related link, and the MDX body already carries its own chosen links.
+    return picked or corpus.blog_slugs[:1]
+
+
+def _related_studies(project, corpus: Corpus) -> list[str]:
+    """Two sibling studies, preferring the same service then the same category."""
+    from casestudy.queue import CATEGORY_SERVICE
+    mine = CATEGORY_SERVICE.get(project.category, "web")
+    others = [p for p in corpus.projects
+              if p.slug in corpus.written_slugs and p.slug != project.slug]
+    others.sort(key=lambda p: (
+        CATEGORY_SERVICE.get(p.category, "web") != mine,   # same service first
+        p.category != project.category,                    # then same category
+        p.slug,
+    ))
+    return [p.slug for p in others[:2]]
 
 
 def _arrows(architecture: str) -> str:

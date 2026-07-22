@@ -1,6 +1,6 @@
 {
   "core/facts/snapshot.py": {
-    "sha256": "6af4f98681f590f7b38455f7875274676b37bcdba26d66d37b0b825bcaac6718",
+    "sha256": "f371f0b2c7852550a8c2614cd3e83d59ab9d8b6d51ecced68a864f83e0267b0c",
     "source": "facts/snapshot.py"
   },
   "core/llm/client.py": {

@@ -55,6 +55,12 @@ class Config:
     github_token: str = os.getenv("GITHUB_TOKEN", "")
     github_repo: str = os.getenv("GITHUB_REPO", "dkcodes121617/wizcodes_main_website")
     github_branch: str = os.getenv("GITHUB_BRANCH", "main")
+    # Same key the blog agent uses — one key per HOST, not per publisher, and the
+    # matching <key>.txt is already served from the site root. Studies are the
+    # higher-value push of the two: they are the pages nobody else can write, so
+    # they are the ones worth getting into Bing (and therefore into ChatGPT's
+    # retrieval) on the day they ship rather than on the next crawl.
+    indexnow_key: str = os.getenv("INDEXNOW_KEY", "2df4018dbb1444e6bc48faf84fc0ff39")
     git_author_name: str = os.getenv("GIT_AUTHOR_NAME", "WizCodes Case Study Bot")
     git_author_email: str = os.getenv("GIT_AUTHOR_EMAIL", "business@wizcodes.site")
 

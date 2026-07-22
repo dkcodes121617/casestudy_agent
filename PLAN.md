@@ -739,13 +739,29 @@ party's memory of a chat.
 | 16 | Reverse internal links (service pages linking INTO studies) | ~~Phase 4~~ | ✅ Round 10 — `StudyLinks` on all 3 service pages |
 | 20 | Delete the dead `CASE_STUDY_CONTENT` literal + `LegacyCaseStudyLayout` | ~~Next round~~ | ✅ Round 10 |
 | 21 | Phase 5 agent: scaffolded, briefs written, first live run green | ~~Phase 5~~ | ✅ Round 11 — `mindmaze-junior` passed every gate |
-| 22 | `make selftest` reports 1 failure: SolarSathi's illustrative "25 kW" | **Needs a decision** | Open — the 7 written studies have no briefs, so the fix I described cannot happen. Either add briefs for them too, or teach selftest to read the study registry as evidence. |
+| 22 | `make selftest` reports 1 failure: SolarSathi's illustrative "25 kW" | ~~Round 12~~ | ✅ Round 12 — decided in favour of the validator: the figure was invented for illustration, so the sentence dropped it. 8/8 specimens now pass. |
 | 23 | **Phase 2 mockup library** — all 8 keys are scoped to the 7 written studies, so all 23 new ones publish with `mockup: 'REVIEW-ME'` and no product visual | Phase 2 | **Open — the largest remaining gap** |
 | 24 | Destiny + Cyber Agent tour sections have no `<Annotated>` | Phase 2 | Open — 2 warnings in selftest |
 | 25 | Scheduled workflow has never fired; `gh pr create` path never executed in CI | First cron, 1 Aug | Open — untested in production |
 | 17 | Sticky TOC + `Annotated` component | ~~Phase 1~~ | ✅ Round 8 — **Phase 1 kit complete** |
 | 18 | Phase 3 migrations: Nullzec, SolarSathi, AI Lead Agent, Tocablox | ~~Phase 3~~ | ✅ Round 9 — **all 6 legacy studies migrated; `CASE_STUDY_CONTENT` is now empty** |
-| 19 | Pre-existing lint error in `OdometerCounter.tsx` (setState in effect) — untouched by this work | Unscheduled | Open |
+| 19 | Pre-existing lint error in `OdometerCounter.tsx` (setState in effect) — untouched by this work | Unscheduled | Open — CI runs `next build`, not `next lint`, so it blocks nothing today |
+| 26 | Blog KB pruned phantom slugs (C4) | ~~Round 12~~ | ✅ `knowledge/store.py:prune_to()`; `ingest_existing` is now authoritative, not additive |
+| 27 | `relatedPosts` / `relatedStudies` populated by the agent, and both rails rendered (C2, C3) | ~~Round 12~~ | ✅ overlap-scored from the corpus; two rails in `CaseStudyLayout` |
+| 28 | Author identity contradiction: blog index + RSS said `Person`, per-post said `Organization` (M1) | ~~Round 12~~ | ✅ Organization everywhere |
+| 29 | Blog posts absent from `llms.txt` / `llms-full.txt` (M2) | ~~Round 12~~ | ✅ second generated block; 13 posts, with each post's H2s as "questions answered" |
+| 30 | IndexNow ping in the case study agent (M3) | ~~Round 12~~ | ✅ `publish_direct` only — a PR branch is not a live URL |
+| 31 | Blog agent workflow had no heartbeat; 60-day schedule auto-disable applied to it too (M4) | ~~Round 12~~ | ✅ throttled to one commit/day |
+| 32 | `MIN_VISUAL_TYPES` declared and never read (L3) | ~~Round 12~~ | ✅ the variety check now compares against the constant instead of a hardcoded `== 1` |
+| 33 | FAQ size unchecked in BOTH agents (L4) | ~~Round 12~~ | ✅ blog 3–8, studies 3–5, plus a 120-char answer floor and a not-a-question check. Bounds set by backtesting: a 3–5 rule rejected 11 of the 13 live posts, which write 6 |
+| 34 | Dead `BlogPost.cover` field (L5) | ~~Round 12~~ | ✅ removed; OG images are generated per route |
+| 35 | `BlogPost` had no `archetype` and no `updated` (L6) | ~~Round 12~~ | ✅ publisher records the archetype it chose, rotation prefers it over the title regex; `dateModified` and sitemap `lastModified` fall back to `date` |
+| 36 | Blog workflow left `ANTHROPIC_STRATEGY_MODEL` / `INDEXNOW_KEY` to config defaults (L7) | ~~Round 12~~ | ✅ both spelled out, matching the case study workflow |
+| 37 | core-sync drifted: the L6 fix touched `facts/snapshot.py` upstream | ~~Round 12~~ | ✅ `core_sync.py pull` taken, lock restamped. The mechanism worked as designed — it caught a real drift on its first opportunity |
+| 38 | Metric `source` was a decorative label: pooled evidence let a brief-only value satisfy `source: 'projects.ts'` | ~~Round 12~~ | ✅ evidence split per source; caught mindmaze-junior's `6 platforms`, relabelled to `'brief'` (projects.ts enumerates the six but never states the count) |
+| 39 | mindmaze-junior published before the gates: empty rails, ASCII architecture arrows | ~~Round 12~~ | ✅ backfilled, **and** `relatedPosts`/`relatedStudies` emptiness is now an entry error so it cannot recur |
+| 40 | `output/*.entry.ts` artefacts still carry `REVIEW-ME` | n/a | **Won't fix** — gitignored local scratch, overwritten by the next run. A fresh run rejects `REVIEW-ME` at the entry gate |
+| 41 | Case study heartbeat lacks the blog's daily dedupe | n/a | **Won't fix** — the cron is `0 9 1,15 * *`. Two fires a month cannot produce two commits in one day; the dedupe would be dead code |
 
 ---
 

@@ -139,8 +139,46 @@ def publish_direct(state: dict, report_body: str) -> str:
     )
     log.info("pushing to %s", CONFIG.github_branch)
     repo.remotes.origin.push(CONFIG.github_branch)
+    _ping_indexnow(state["slug"])
     log.info("published %s — the site deploy workflow takes it from here", mdx_rel)
     return CONFIG.github_branch
+
+
+def _ping_indexnow(slug: str) -> None:
+    """Tell Bing/IndexNow the new study URL exists.
+
+    Deliberately called from publish_direct ONLY. A PR branch is not live; pinging
+    from publish_pr would announce a URL that 404s until someone merges, which is
+    worse than not pinging at all — IndexNow treats a 404 as a bad submission.
+
+    Best-effort: a failed ping must never fail a publish that already succeeded,
+    so every error is swallowed with a warning. The push has happened by the time
+    this runs; there is nothing left to roll back.
+    """
+    key = CONFIG.indexnow_key
+    if not key:
+        log.info("indexnow: no INDEXNOW_KEY set — skipping ping")
+        return
+    try:
+        import requests
+
+        resp = requests.post(
+            "https://api.indexnow.org/IndexNow",
+            json={
+                "host": "wizcodes.site",
+                "key": key,
+                "keyLocation": f"https://wizcodes.site/{key}.txt",
+                # /work is the index the new study appears on, so both URLs changed.
+                "urlList": [
+                    f"https://wizcodes.site/work/{slug}",
+                    "https://wizcodes.site/work",
+                ],
+            },
+            timeout=15,
+        )
+        log.info("indexnow: HTTP %s for /work/%s", resp.status_code, slug)
+    except Exception as e:  # noqa: BLE001
+        log.warning("indexnow ping failed (ignored): %s", e)
 
 
 def publish_pr(state: dict, report_body: str) -> str:
