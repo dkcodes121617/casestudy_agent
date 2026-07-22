@@ -234,7 +234,10 @@ def run_once(candidate: Candidate, corpus: Corpus, site_dir=None) -> dict:
         "body_mdx": body,
         "spec": spec,
         "plan": plan,
-        "registry_entry": _render_registry_entry(project, archetype, plan, spec, corpus),
+        "registry_entry": _render_registry_entry(
+            project, archetype, plan, spec, corpus,
+            mockups=sorted(_mockup_keys(site_dir, project_id=project.id)),
+        ),
         "report": "\n".join(report),
     }
 
@@ -339,10 +342,21 @@ def _esc(s: str) -> str:
     return str(s).replace("\\", "\\\\").replace("'", "\\'").replace("\n", " ").strip()
 
 
-def _render_registry_entry(project, archetype: str, plan: dict, spec: dict, corpus: Corpus) -> str:
+def _render_registry_entry(project, archetype: str, plan: dict, spec: dict, corpus: Corpus,
+                           *, mockups: list[str] | None = None) -> str:
     """Build the TypeScript object literal for studies.ts."""
     from datetime import date
     today = date.today().isoformat()
+
+    # Pick the mockup when the answer is unambiguous. `REVIEW-ME` existed because
+    # no mockup covered the corpus; now that every project has one, leaving a
+    # placeholder for a lookup with exactly one answer is just manual work the
+    # agent is choosing not to do. Two or more valid keys IS a judgement call, so
+    # that still goes to review.
+    hero_mockup = mockups[0] if mockups and len(mockups) == 1 else "REVIEW-ME"
+    hero_kind = {
+        "phone": "phone", "browser": "browser", "system": "system", "design": "phone",
+    }.get(hero_mockup.split("/")[0], "browser")
     g = spec.get("glance", {})
 
     def arr(items, indent="      "):
@@ -374,8 +388,8 @@ def _render_registry_entry(project, archetype: str, plan: dict, spec: dict, corp
       '{_esc(plan.get("summary", ""))}',
 
     hero: {{
-      kind: 'browser',
-      mockup: 'REVIEW-ME',
+      kind: '{hero_kind}',
+      mockup: '{hero_mockup}',
       caption: '{_esc(plan.get("headline", ""))}',
     }},
 
@@ -398,7 +412,7 @@ def _render_registry_entry(project, archetype: str, plan: dict, spec: dict, corp
 {arr(g.get("coreFeatures", []))}
       ],
       architecture:
-        '{_esc(g.get("architecture", ""))}',
+        '{_esc(_arrows(g.get("architecture", "")))}',
       technicalHighlights: [
 {arr(g.get("technicalHighlights", []))}
       ],
@@ -421,6 +435,17 @@ def _render_registry_entry(project, archetype: str, plan: dict, spec: dict, corp
 {"    hideStatus: true," if project.hide_status else ""}
   }},
 """
+
+
+def _arrows(architecture: str) -> str:
+    """Normalise ASCII arrows to the glyph the hand-written studies use.
+
+    parseArchitecture() accepts both, so this is cosmetic on the page — but the
+    raw string is also printed verbatim into llms-full.txt, where a mix of
+    "A -> B" and "A → B" across studies reads as two different formats.
+    """
+    import re as _re
+    return _re.sub(r"\s*(?:->|→)\s*", " → ", architecture).strip()
 
 
 def _service_for(project) -> str:
