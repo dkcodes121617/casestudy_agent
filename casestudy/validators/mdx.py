@@ -158,9 +158,24 @@ def validate(
                 f'(expected "{slug}")')
 
     # At least one product mockup: an abstract diagram does not show a product.
+    #
+    # This is an ERROR when the archetype plans a `tour`, not a warning. It was a
+    # warning, and that is precisely how two published studies (cyber-agent and
+    # destiny-ai-journal) ended up with an "Inside the product" section whose
+    # prose describes a UI in close detail with nothing beside it to look at —
+    # the agent flagged it and shipped anyway, and nothing downstream re-checked.
+    # The site's own prebuild check (scripts/check-studies.mjs) now enforces the
+    # same rule, so a study that slips past here fails the build instead.
+    #
+    # Archetypes without a `tour` (none today, but the plan allows it) keep the
+    # softer signal: there is no product tour to illustrate.
     mockups = re.findall(r'<Annotated[^>]*?mockup="([^"]+)"', text, re.S)
     if not mockups:
-        r.warnings.append("no <Annotated> mockup — the product tour has no visual")
+        msg = "no <Annotated> mockup — the product tour has no visual"
+        if "tour" in SECTION_PLAN.get(archetype, []):
+            r.errors.append(msg)
+        else:
+            r.warnings.append(msg)
     for key in mockups:
         if key not in mockup_keys:
             r.errors.append(f'unknown mockup key "{key}" — not in the mockup registry')

@@ -166,7 +166,12 @@ Reply as JSON:
     "technicalChallenges": string,
     "engineeringSolution": string,
     "coreFeatures": [4-8 short noun phrases],
-    "architecture": string (arrow-separated, 2-6 nodes, e.g. "React → FastAPI → Postgres"),
+    "architecture": string (arrow-separated, 2-6 STAGES, e.g. "React → FastAPI → Postgres".
+       Use "|" between nodes that run at the SAME stage, side by side rather than
+       one after another: "React Native → FastAPI → Groq | Replicate | Edge TTS → Supabase".
+       Max 4 parallel nodes. Only use "|" where the brief actually states those
+       things run in parallel — it renders as a claim about the system and is
+       spelled out in the diagram's alt text),
     "technicalHighlights": [3-5 short sentences],
     "businessValue": string
   }},
