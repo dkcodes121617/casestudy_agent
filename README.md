@@ -7,7 +7,7 @@ to `main` — the site's deploy workflow takes it live from there.
 Same deployment shape as the [blog agent](https://github.com/dkcodes121617/blog_agent):
 a scheduled GitHub Actions workflow on this public repo (unlimited free minutes, no
 server), committing to the private site repo, whose own workflow builds and runs
-`firebase deploy`. Only recurring cost is the ClaudeStore proxy key.
+`firebase deploy`. Only recurring cost is the LLMsRelay proxy key.
 
 ---
 
@@ -151,7 +151,7 @@ OPEN_PR=1 make run            # generate and open a PR for review instead
 
 In this repo → **Settings → Secrets and variables → Actions**:
 
-- `ANTHROPIC_API_KEY` — the ClaudeStore key.
+- `ANTHROPIC_API_KEY` — the LLMsRelay key.
 - `PUBLISH_TOKEN` — a fine-grained PAT scoped to **only** the site repo, with
   **Contents: Read and write**, plus **Pull requests: Read and write** if you ever
   use PR mode. Actions reserves the name `GITHUB_TOKEN`, so the secret is

@@ -1,6 +1,6 @@
 """Keep `core/` in step with the blog agent it was copied from.
 
-`core/llm/client.py` encodes non-obvious, hard-won knowledge about the ClaudeStore
+`core/llm/client.py` encodes non-obvious, hard-won knowledge about the LLMsRelay
 proxy: the CLI User-Agent its Cloudflare requires, the injection-guard phrasing
 rules, the 2000-char prompt-caching threshold, the retry/backoff shape. That file
 lives in two repos now. Two copies drift, and this particular drift surfaces six
