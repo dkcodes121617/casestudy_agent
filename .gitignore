@@ -19,6 +19,21 @@ pip-wheel-metadata/
 
 # Logs
 *.log
+# ...EXCEPT the scheduled-run heartbeat.
+#
+# `*.log` matched .runs/history.log, so the Heartbeat step's `git add` hit an
+# ignored path, exited non-zero, and failed the step — which marked EVERY
+# scheduled "Publish case study" run as a failure even when the agent itself
+# succeeded (verified: 15 Aug run 31877223677, "Run agent" success, "Heartbeat"
+# failure).
+#
+# The real damage was quieter. That heartbeat exists solely to keep the repo
+# active: GitHub disables a scheduled workflow after ~60 days of repository
+# INACTIVITY, and workflow runs do not count — only commits do. This agent
+# commits to the SITE repo and never to its own, so with the heartbeat unable to
+# land, both crons here were on course to switch themselves off around 29
+# September 2026, silently and with no failure notification.
+!.runs/history.log
 
 # Environment Variables
 .env
