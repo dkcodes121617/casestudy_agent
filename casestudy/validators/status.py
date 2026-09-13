@@ -101,6 +101,55 @@ def _prose_only(mdx: str) -> str:
     return _TS_COMMENT.sub(" ", _COMPONENT.sub(" ", _FENCE.sub(" ", mdx)))
 
 
+# Words that INVERT the claim that follows them. A release-state word inside one
+# of these is not a release claim — it is the opposite, and usually the thing
+# that makes a web build worth choosing.
+#
+# Without this, the gate was unusable. Every scheduled run from 31 Jul to 13 Sep
+# aborted, three publish slots missed, and all three observed failures were
+# negations:
+#
+#   "...designed in from the start, not bolted on after launch."
+#   "...updates instantly without client installations."
+#   "...runs everywhere without app-store submission cycles."
+#
+# None of those asserts the project shipped. The loop could not recover either,
+# because each rewrite regenerated all six sections and tripped a different
+# innocuous word, so the rewrite budget was spent every time.
+_NEGATION = re.compile(
+    r"\b(?:without|no|not|never|avoids?|avoiding|skips?|skipping|eliminates?|"
+    r"eliminating|instead\s+of|rather\s+than|free\s+from|independent\s+of|"
+    r"regardless\s+of|prevents?|removes?|removing)\b",
+    re.I,
+)
+
+#: How far back to look for a negation. Long enough to catch "without waiting on
+#: a store review" (28 chars), short enough that a negation in a previous clause
+#: does not excuse a genuine claim later in the same sentence.
+_NEGATION_WINDOW = 44
+
+
+#: Phrases that contain a negation word but do not negate anything. "Without a
+#: doubt, it shipped on time" is an assertion that it shipped, and reading the
+#: "without" as scope would wave the claim straight through.
+_FALSE_NEGATION = re.compile(
+    r"\b(?:without\s+(?:a\s+)?doubt|without\s+question|no\s+doubt|"
+    r"not\s+only|no\s+less|nothing\s+short\s+of)\b",
+    re.I,
+)
+
+
+def _negated(line: str, start: int) -> bool:
+    """True when the match at `start` sits inside a negated construction."""
+    window = line[max(0, start - _NEGATION_WINDOW): start]
+    # A clause boundary between the negation and the match ends its scope:
+    # "no downloads. Users are on it" must still be caught.
+    window = re.split(r"[.;:!?,]", window)[-1]
+    if _FALSE_NEGATION.search(window):
+        return False
+    return bool(_NEGATION.search(window))
+
+
 def scan(body_mdx: str, *, hide_status: bool) -> StatusReport:
     """Only meaningful for a hideStatus study; returns clean otherwise."""
     report = StatusReport()
@@ -111,6 +160,11 @@ def scan(body_mdx: str, *, hide_status: bool) -> StatusReport:
     for rule, pattern in ALL_RULES:
         for i, line in enumerate(lines, start=1):
             for m in pattern.finditer(line):
+                if _negated(line, m.start()):
+                    log.debug(
+                        "status: %r on line %d is negated, not a claim", m.group(0), i
+                    )
+                    continue
                 lo = max(0, m.start() - 34)
                 report.findings.append(StatusFinding(
                     rule=rule, match=m.group(0), line=i,
