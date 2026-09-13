@@ -42,7 +42,22 @@ TRACKED = {
 
 
 def sha(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    """Hash the file's CONTENT, with line endings normalised out.
+
+    Hashing raw bytes made this check platform-dependent and therefore useless.
+    Git checks these files out CRLF on Windows and LF on Linux, so a lock file
+    stamped on a developer's machine could never match in CI: every tracked file
+    reported "EDITED LOCALLY" on a repository where nothing had been edited at
+    all. The weekly check failed from 27 July onward and became noise — which
+    also hid the real drift it exists to catch, and sat alongside three missed
+    publish slots that nobody saw for the same reason.
+
+    A trailing-newline difference is not a code change either, so it is stripped
+    too. What remains is exactly what this guard cares about: whether the copy
+    says something different from its upstream.
+    """
+    content = path.read_bytes().replace(b"\r\n", b"\n").rstrip(b"\n")
+    return hashlib.sha256(content).hexdigest()
 
 
 def load_lock() -> dict:
