@@ -139,6 +139,41 @@ _FALSE_NEGATION = re.compile(
 )
 
 
+#: Verbs that make the word after them a CAPABILITY rather than an event.
+#:
+#: "The modular design lets us ship core features first" describes what the
+#: architecture permits; it asserts nothing about whether anything was released.
+#: Same for "allows the team to ship", "possible to launch", "designed to release
+#: updates" and "can download the export as CSV" — that last one is a user
+#: pressing a button in the product, which has no relationship to app stores at
+#: all.
+#:
+#: Deliberately NOT included: will, would, going to. Those read as a release
+#: assertion displaced in time rather than a statement about capability, and this
+#: gate is meant to be conservative.
+_CAPABILITY = re.compile(
+    r"\b(?:to|can|could|may|might|lets?|allows?|enables?|helps?|"
+    r"able\s+to|possible\s+to|designed\s+to|built\s+to|ready\s+to)\b"
+    r"[^.;:!?]{0,24}$",
+    re.I,
+)
+
+#: Only the BARE form can be a capability. "shipped", "ships", "launched",
+#: "downloads" are claims about something that happened or keeps happening, and
+#: no preceding word makes them otherwise — which is what keeps "We shipped it to
+#: the App Store" and "The team ships changes" failing exactly as before.
+_BARE_FORMS = frozenset({"ship", "launch", "release", "download", "install"})
+
+
+def _capability(line: str, start: int, match: str) -> bool:
+    """True when the match is a bare infinitive introduced by an enabling verb."""
+    if match.lower() not in _BARE_FORMS:
+        return False
+    window = line[max(0, start - 40): start]
+    window = re.split(r"[.;:!?]", window)[-1]
+    return bool(_CAPABILITY.search(window))
+
+
 def _negated(line: str, start: int) -> bool:
     """True when the match at `start` sits inside a negated construction."""
     window = line[max(0, start - _NEGATION_WINDOW): start]
@@ -163,6 +198,12 @@ def scan(body_mdx: str, *, hide_status: bool) -> StatusReport:
                 if _negated(line, m.start()):
                     log.debug(
                         "status: %r on line %d is negated, not a claim", m.group(0), i
+                    )
+                    continue
+                if _capability(line, m.start(), m.group(0)):
+                    log.debug(
+                        "status: %r on line %d is a capability, not an event",
+                        m.group(0), i,
                     )
                     continue
                 lo = max(0, m.start() - 34)

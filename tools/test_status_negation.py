@@ -41,6 +41,14 @@ MUST_PASS = [
     "A web build means no installations and no store submission.",
     # --- words that merely resemble the rules ---
     "The relationship with the client outlasted the engagement.",
+    # --- capability, not an event: bare infinitive after an enabling verb ---
+    "The modular design lets us ship core features first and add automation later.",
+    "The architecture allows the team to ship changes safely.",
+    "A modular build makes it possible to launch features independently.",
+    "Designed to release updates without downtime.",
+    "The team can download the export as CSV.",
+    "The schema is built to release new field types without a migration.",
+    "Staff are able to install the report template themselves.",
 ]
 
 MUST_FAIL = [
@@ -61,6 +69,10 @@ MUST_FAIL = [
     # The module's own docstring lists this as a claim the phrase list MISSED,
     # so it is a true positive: it asserts an ongoing release cadence.
     "The team ships changes without waiting on a store review.",
+    # --- an enabling verb must NOT excuse a conjugated form ---
+    "The design lets us ship faster, and we shipped in March.",
+    "It can be downloaded from the Play Store.",
+    "The rewrite allowed the team to launch, and it launched on time.",
 ]
 
 # KNOWN GAP, pre-existing and deliberately not papered over here: the `ship`
@@ -95,7 +107,7 @@ def main() -> int:
             print(f"  {f}")
         return 1
     print(f"status negation: {total}/{total} ok "
-          f"({len(MUST_PASS)} negated phrases pass, {len(MUST_FAIL)} real claims still caught)")
+          f"({len(MUST_PASS)} safe phrasings pass, {len(MUST_FAIL)} real claims still caught)")
     return 0
 
 
