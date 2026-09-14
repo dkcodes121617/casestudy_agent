@@ -200,7 +200,15 @@ Reply as JSON:
 
 Every metric with source "projects.ts" or "brief" must quote a value that genuinely
 appears there. If you have no real number, use source "qualitative" and a value with
-no numeral in it. Never estimate."""
+no numeral in it. Never estimate.
+
+glance.businessProblem, glance.technicalChallenges, glance.engineeringSolution and
+glance.businessValue are each lifted out of the page and displayed on their own - in
+the glance panel, in search results and by answer engines - so each has to make sense
+with nothing around it. Name the subject explicitly and never open one with "It",
+"They", "This", "That", "These", "Those", "We", or "The app/platform/system/product/
+tool". Write "The expense platform consolidates three systems", not "It consolidates
+three systems"."""
     return system, user
 
 
